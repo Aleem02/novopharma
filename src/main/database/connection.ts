@@ -16,7 +16,7 @@ export class DatabaseManager {
     // Safely determine path, blocking any renderer influence
     if (testDbPath) {
       this.dbPath = testDbPath
-    } else {
+    } else if (!this.dbPath) {
       if (process.env.NODE_ENV === 'test' || process.env.VITEST) {
         throw new Error('FATAL: Attempted to open production database during automated tests.')
       }

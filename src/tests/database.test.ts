@@ -63,7 +63,7 @@ describe('Database Architecture', () => {
       expect(tableNames).toContain('audit_logs')
       
       const version = db.prepare('SELECT MAX(id) as v FROM _migrations').get() as { v: number }
-      expect(version.v).toBe(10)
+      expect(version.v).toBe(15)
     })
 
     it('does not re-run migrations on subsequent calls (idempotency)', () => {

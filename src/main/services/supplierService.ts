@@ -47,13 +47,13 @@ export class SupplierService {
       }
     }
     if (payload.email) {
-      const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       if (!emailRegex.test(payload.email)) {
         throw new ApiError(400, 'Invalid email format')
       }
     }
     if (payload.phone) {
-      const phoneRegex = /^[0-9\\-\\+]{7,15}$/
+      const phoneRegex = /^[0-9\-+]{7,15}$/
       if (!phoneRegex.test(payload.phone)) {
         throw new ApiError(400, 'Invalid phone format')
       }

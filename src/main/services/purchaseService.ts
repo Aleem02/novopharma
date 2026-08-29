@@ -34,20 +34,23 @@ export class PurchaseService {
       
       const itemStmt = db.prepare(`
         INSERT INTO purchase_items (
-          purchase_id, product_id, batch_number, expiry_date, quantity, purchase_price, mrp, selling_price, entered_unit, entered_units_per_pack, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          purchase_id, product_id, batch_number, expiry_date, quantity, base_quantity, purchase_price, mrp, selling_price, entered_unit, entered_units_per_pack, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `)
 
       for (const item of payload.items) {
+        const baseQuantity = item.quantity * (item.entered_units_per_pack || 1)
+        const sellingPrice = item.selling_price !== undefined && item.selling_price !== null ? item.selling_price : (item.mrp || 0)
         itemStmt.run(
           purchaseId,
           item.product_id,
           item.batch_number,
           item.expiry_date,
           item.quantity,
+          baseQuantity,
           item.purchase_price,
           item.mrp,
-          item.selling_price,
+          sellingPrice,
           item.entered_unit || null,
           item.entered_units_per_pack || null,
           now
@@ -107,7 +110,8 @@ export class PurchaseService {
         `)
         for (const item of payload.items) {
           const baseQuantity = item.quantity * (item.entered_units_per_pack || 1);
-          itemStmt.run(id, item.product_id, item.batch_number, item.expiry_date, item.quantity, baseQuantity, item.purchase_price, item.mrp, item.selling_price, item.entered_unit || null, item.entered_units_per_pack || null, now)
+          const sellingPrice = item.selling_price !== undefined && item.selling_price !== null ? item.selling_price : (item.mrp || 0)
+          itemStmt.run(id, item.product_id, item.batch_number, item.expiry_date, item.quantity, baseQuantity, item.purchase_price, item.mrp, sellingPrice, item.entered_unit || null, item.entered_units_per_pack || null, now)
         }
       }
 

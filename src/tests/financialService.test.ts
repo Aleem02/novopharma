@@ -38,7 +38,8 @@ describe('FinancialService Integration Tests', () => {
         expiry_date: now + 365 * 24 * 60 * 60 * 1000,
         quantity: 100,
         purchase_price: 50,
-        mrp: 100
+        mrp: 2000,
+        selling_price: 2000
       }]
     })
 

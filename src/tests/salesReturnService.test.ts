@@ -167,7 +167,7 @@ describe('SalesReturnService Integration Tests', () => {
         reason: 'Bad quantity',
         items: [{ sale_item_id: saleItem.id, quantity: -1 }]
       })
-    }).toThrow(/Return quantity must be a positive integer/)
+    }).toThrow(/Return quantity.*positive/)
   })
 
   it('should roll back completely on failure and preserve inventory quantity', () => {

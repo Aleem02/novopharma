@@ -8,6 +8,7 @@ import { PurchaseService } from '../main/services/purchaseService'
 import { SaleService } from '../main/services/saleService'
 import { ReportService } from '../main/services/reportService'
 import { DashboardService } from '../main/services/dashboardService'
+import { InventoryService } from '../main/services/inventoryService'
 import { ApiClient } from '../main/services/apiClient'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -30,6 +31,8 @@ describe('ERP End-to-End Workflow & Offline Testing', () => {
   let createdProductId: string;
   let createdCustomerId: string;
   let createdSupplierId: string;
+  let purchaseId: number;
+  let saleId: number;
   
   beforeAll(async () => {
     // Ensure clean state
@@ -57,23 +60,20 @@ describe('ERP End-to-End Workflow & Offline Testing', () => {
     it('should create and retrieve a Product offline', async () => {
       const product = await ProductService.createProduct({
         name: 'Test Paracetamol',
-        genericName: 'Paracetamol 500mg',
-        categoryId: 'cat_1',
-        categoryName: 'Tablets',
-        unitId: 'unit_1',
-        unitName: 'Strip',
-        purchasePrice: 10,
-        sellingPrice: 15,
-        minStockLevel: 50,
-        requiresPrescription: false
+        generic_name: 'Paracetamol 500mg',
+        category: 'Tablets',
+        unit: 'Strip',
+        selling_price: 15,
+        tax_rate: 0
       })
       expect(product).toBeDefined()
       expect(product.id).toBeDefined()
       createdProductId = product.id
 
-      const fetched = await ProductService.getProductById(createdProductId)
+      const fetched = await ProductService.getProduct(createdProductId)
       expect(fetched?.name).toBe('Test Paracetamol')
-      expect(fetched?.stockQuantity).toBe(0) // Initial stock is 0
+      const stock = InventoryService.getByProductId(createdProductId).reduce((sum, b) => sum + b.quantity, 0)
+      expect(stock).toBe(0) // Initial stock is 0
     })
 
     it('should create and retrieve a Customer offline', async () => {
@@ -86,14 +86,14 @@ describe('ERP End-to-End Workflow & Offline Testing', () => {
       expect(customer).toBeDefined()
       createdCustomerId = customer.id
       
-      const fetched = await CustomerService.getCustomerById(createdCustomerId)
+      const fetched = await CustomerService.getCustomer(createdCustomerId)
       expect(fetched?.name).toBe('John Doe')
     })
 
     it('should create and retrieve a Supplier offline', async () => {
       const supplier = await SupplierService.createSupplier({
         name: 'PharmaCorp',
-        contactPerson: 'Jane Smith',
+        contact_person: 'Jane Smith',
         phone: '0987654321',
         email: 'contact@pharmacorp.com',
         address: '456 Pharma Ave'
@@ -101,62 +101,56 @@ describe('ERP End-to-End Workflow & Offline Testing', () => {
       expect(supplier).toBeDefined()
       createdSupplierId = supplier.id
       
-      const fetched = await SupplierService.getSupplierById(createdSupplierId)
+      const fetched = await SupplierService.getSupplier(createdSupplierId)
       expect(fetched?.name).toBe('PharmaCorp')
     })
   })
 
   describe('E. Purchase Workflow', () => {
     it('should complete a purchase and update stock offline', async () => {
-      const purchase = await PurchaseService.createPurchase({
-        supplierId: createdSupplierId,
-        supplierName: 'PharmaCorp',
-        purchaseDate: Date.now(),
-        status: 'COMPLETED',
-        totalAmount: 1000,
-        notes: 'Monthly restock',
+      const draft = PurchaseService.createDraft({
+        supplier_id: createdSupplierId,
+        purchase_date: Date.now(),
+        invoice_number: 'INV-123456',
         items: [
           {
-            productId: createdProductId,
-            productName: 'Test Paracetamol',
-            batchNumber: 'BATCH-001',
-            expiryDate: Date.now() + 86400000 * 365, // 1 year
+            product_id: createdProductId,
+            batch_number: 'BATCH-001',
+            expiry_date: Date.now() + 86400000 * 365, // 1 year
             quantity: 100,
-            unitPrice: 10,
-            totalPrice: 1000
+            purchase_price: 10,
+            mrp: 15,
+            selling_price: 15
           }
         ]
       })
+      
+      const purchase = PurchaseService.completePurchase(draft.id)
       
       expect(purchase).toBeDefined()
       expect(purchase.id).toBeDefined()
       purchaseId = purchase.id
 
       // Verify stock was updated
-      const product = await ProductService.getProductById(createdProductId)
-      expect(product?.stockQuantity).toBe(100)
+      const stock = InventoryService.getByProductId(createdProductId).reduce((sum, b) => sum + b.quantity, 0)
+      expect(stock).toBe(100)
     })
   })
 
   describe('F. Sales/POS Workflow', () => {
     it('should complete a sale and reduce stock offline', async () => {
-      const sale = await SaleService.createSale({
-        customerId: createdCustomerId,
-        customerName: 'John Doe',
-        saleDate: Date.now(),
-        status: 'COMPLETED',
-        subTotal: 30,
-        discount: 0,
-        tax: 0,
-        totalAmount: 30,
-        paymentMethod: 'CASH',
+      const sale = SaleService.createSale({
+        customer_id: createdCustomerId,
+        payments: [{ payment_method: 'CASH', amount: 30 }],
+        received_amount: 30,
+        change_amount: 0,
         items: [
           {
-            productId: createdProductId,
-            productName: 'Test Paracetamol',
+            product_id: createdProductId,
             quantity: 2,
-            unitPrice: 15,
-            totalPrice: 30
+            selling_price: 15,
+            mrp: 15,
+            tax_rate: 0
           }
         ]
       })
@@ -166,26 +160,27 @@ describe('ERP End-to-End Workflow & Offline Testing', () => {
       saleId = sale.id
 
       // Verify stock was reduced (100 - 2 = 98)
-      const product = await ProductService.getProductById(createdProductId)
-      expect(product?.stockQuantity).toBe(98)
+      const stock = InventoryService.getByProductId(createdProductId).reduce((sum, b) => sum + b.quantity, 0)
+      expect(stock).toBe(98)
     })
   })
 
   describe('G. Reports & Dashboard', () => {
-    it('should generate accurate reports offline', async () => {
-      const salesReport = await ReportService.getSalesReport(Date.now() - 86400000, Date.now() + 86400000)
-      expect(salesReport.totalSales).toBe(30)
+    it('should generate accurate reports offline', () => {
+      const salesReport = ReportService.getSales(Date.now() - 86400000, Date.now() + 86400000)
+      expect(salesReport.items.length).toBe(1)
+      expect(salesReport.items[0].total_amount).toBe(30)
       
-      const inventoryReport = await ReportService.getInventoryValuationReport()
-      // 98 items * 10 purchase price = 980
-      expect(inventoryReport.totalValuation).toBe(980)
+      const batches = InventoryService.listInventory()
+      const totalValuation = batches.reduce((sum, b) => sum + (b.quantity * b.purchase_price), 0)
+      expect(totalValuation).toBe(980)
     })
     
-    it('should load dashboard data offline', async () => {
-      const stats = await DashboardService.getStats()
+    it('should load dashboard data offline', () => {
+      const stats = DashboardService.getSummary()
       expect(stats.todaySales).toBe(30)
       expect(stats.totalProducts).toBe(1)
-      expect(stats.lowStockItems).toBe(0) // Stock is 98, min is 50
+      expect(stats.lowStockCount).toBe(0) // Stock is 98, min is 50
     })
   })
   

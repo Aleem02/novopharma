@@ -118,8 +118,12 @@ export class BackupService {
       MigrationRunner.run(newDb)
       
       // Notify UI to Reload
-      const windows = BrowserWindow.getAllWindows()
-      windows.forEach(win => win.reload())
+      const windows = BrowserWindow.getAllWindows() || []
+      windows.forEach(win => {
+        if (win && typeof win.reload === 'function') {
+          win.reload()
+        }
+      })
       
       return true
     } catch (error: any) {

@@ -120,17 +120,17 @@ describe('Financial Reconciliation', () => {
     const end = Date.now() + 100000
 
     const salesReport = ReportService.getSales(start, end, 1, 10)
-    expect(salesReport.data.length).toBe(2)
+    expect(salesReport.items.length).toBe(2)
     expect(salesReport.total).toBe(2)
 
     const returnsReport = ReportService.getSalesReturns(start, end, 1, 10)
-    expect(returnsReport.data.length).toBe(1)
+    expect(returnsReport.items.length).toBe(1)
     expect(returnsReport.total).toBe(1)
 
     const inventoryReport = ReportService.getInventory(1, 10, false)
-    expect(inventoryReport.data.length).toBeGreaterThan(0)
-    expect(inventoryReport.data[0].product_name).toBe('Recon Med')
+    expect(inventoryReport.items.length).toBeGreaterThan(0)
+    expect(inventoryReport.items[0].product_name).toBe('Recon Med')
     // Originally 100, sold 10 + 20 = 30 => 70. Return 5 => 75.
-    expect(inventoryReport.data[0].quantity).toBe(75)
+    expect(inventoryReport.items[0].quantity).toBe(75)
   })
 })

@@ -60,12 +60,12 @@ describe('CustomerService Integration Tests', () => {
       })
     }
 
-    const page1 = CustomerService.listCustomers(1, 10)
+    const page1 = CustomerService.getPaginatedCustomers({ page: 1, pageSize: 10 })
     expect(page1.total).toBe(15)
-    expect(page1.data.length).toBe(10)
+    expect(page1.items.length).toBe(10)
     expect(page1.totalPages).toBe(2)
 
-    const search = CustomerService.listCustomers(1, 10, 'Customer 1')
+    const search = CustomerService.getPaginatedCustomers({ page: 1, pageSize: 10, search: 'Customer 1' })
     // Matches 1, 10, 11, 12, 13, 14, 15
     expect(search.total).toBe(7)
   })
