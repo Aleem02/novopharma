@@ -1,0 +1,20 @@
+appId: com.novopharma.app
+productName: NovoPharma
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+win:
+  target: nsis
+  artifactName: ${productName}-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+publish:
+  provider: github
+  owner: Aleem02
+  repo: novopharma
+  releaseType: release

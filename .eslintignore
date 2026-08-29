@@ -1,0 +1,13 @@
+node_modules/
+dist/
+out/
+release/
+scratch/
+.test_userdata/
+*.js
+*.cjs
+*.mjs
+src/tests/
+tests/
+**/*.test.ts
+**/*.test.tsx

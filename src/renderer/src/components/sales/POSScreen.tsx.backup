@@ -1,0 +1,503 @@
+import React, { useState, useEffect, useRef } from 'react'
+import { Product, POSCartItem, PaymentMethod, Customer, Prescription } from '../../../../shared/types'
+import { Input } from '../ui/Input'
+import { Button } from '../ui/Button'
+import { useNavigate } from 'react-router-dom'
+import { PageHeader } from '../ui/PageHeader'
+
+export const POSScreen: React.FC = () => {
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Product[]>([])
+  const [cart, setCart] = useState<POSCartItem[]>([])
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH')
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState('')
+  
+  // Customer & Prescription state
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('')
+  const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([])
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  
+  const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
+  const [customerPrescriptions, setCustomerPrescriptions] = useState<Prescription[]>([])
+  const [selectedPrescriptionId, setSelectedPrescriptionId] = useState<number | null>(null)
+  
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const processingLock = useRef(false)
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    searchInputRef.current?.focus()
+  }, [])
+
+  // Product Search Debounce
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      if (searchQuery.trim().length > 0) {
+        window.api.product.search(searchQuery).then(results => {
+          setSearchResults(results)
+        }).catch(err => {
+          setError(err.message || 'Search failed')
+        })
+      } else {
+        setSearchResults([])
+      }
+    }, 300)
+
+    return () => clearTimeout(delayDebounce)
+  }, [searchQuery])
+
+  // Customer Search Debounce
+  useEffect(() => {
+    const delayDebounce = setTimeout(() => {
+      if (customerSearchQuery.trim().length > 2) {
+        window.api.customer.list(1, 10, customerSearchQuery).then(results => {
+          setCustomerSearchResults(results.data)
+        }).catch(err => {
+          console.error(err)
+        })
+      } else {
+        setCustomerSearchResults([])
+      }
+    }, 300)
+
+    return () => clearTimeout(delayDebounce)
+  }, [customerSearchQuery])
+
+  const selectCustomer = async (customer: Customer) => {
+    setSelectedCustomer(customer)
+    setCustomerSearchQuery('')
+    setCustomerSearchResults([])
+    setSelectedPrescriptionId(null)
+    try {
+      const result = await window.api.prescription.list(customer.id, 1, 50)
+      setCustomerPrescriptions(result.data)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  const clearCustomer = () => {
+    setSelectedCustomer(null)
+    setCustomerPrescriptions([])
+    setSelectedPrescriptionId(null)
+  }
+
+  const loadPrescription = async (prescription: Prescription) => {
+    setSelectedPrescriptionId(prescription.id)
+    setShowPrescriptionModal(false)
+    
+    // Add all linked products to cart
+    let productsAdded = 0
+    let missingProducts = 0
+    
+    for (const item of (prescription.items || [])) {
+      if (item.product_id) {
+        try {
+          const product = await window.api.product.get(item.product_id)
+          if (product && product.is_active) {
+            // Check if already in cart
+            setCart(prev => {
+              const existing = prev.find(p => p.product.id === product.id)
+              if (existing) {
+                return prev.map(p => 
+                  p.product.id === product.id 
+                    ? { ...p, quantity: p.quantity + item.quantity }
+                    : p
+                )
+              }
+              return [...prev, { product, quantity: item.quantity }]
+            })
+            productsAdded++
+          } else {
+            missingProducts++
+          }
+        } catch (e) {
+          missingProducts++
+        }
+      } else {
+        missingProducts++
+      }
+    }
+    
+    if (missingProducts > 0) {
+      setError(`${productsAdded} items added. ${missingProducts} items were custom, inactive, or not found in the master. Please add them manually if needed.`)
+    } else {
+      setError('')
+    }
+  }
+
+  const handleBarcodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!searchQuery.trim()) return
+
+    try {
+      const results = await window.api.product.search(searchQuery)
+      if (results.length === 1) {
+        addToCart(results[0])
+        setSearchQuery('')
+      } else {
+        setSearchResults(results)
+      }
+    } catch (err: any) {
+      setError(err.message || 'Search failed')
+    }
+  }
+
+  const addToCart = (product: Product) => {
+    setError('')
+    if (!product.is_active) {
+      setError(`Cannot add ${product.name} as it is inactive.`)
+      return
+    }
+
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id)
+      if (existing) {
+        return prev.map(item => 
+          item.product.id === product.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      } else {
+        return [...prev, { product, quantity: 1 }]
+      }
+    })
+    
+    searchInputRef.current?.focus()
+  }
+
+  const updateQuantity = (productId: number, delta: number) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.id === productId) {
+        const newQuantity = item.quantity + delta
+        return { ...item, quantity: newQuantity > 0 ? newQuantity : 1 }
+      }
+      return item
+    }))
+  }
+
+  const removeFromCart = (productId: number) => {
+    setCart(prev => prev.filter(item => item.product.id !== productId))
+  }
+
+  const handleCheckout = async () => {
+    if (cart.length === 0 || processingLock.current) return
+    processingLock.current = true
+    setIsProcessing(true)
+    setError('')
+
+    try {
+      const payload = {
+        payment_method: paymentMethod,
+        customer_id: selectedCustomer?.id || null,
+        prescription_id: selectedPrescriptionId || null,
+        items: cart.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+          selling_price: item.product.selling_price,
+          mrp: item.product.selling_price,
+          tax_rate: item.product.tax_rate
+        }))
+      }
+
+      const sale = await window.api.sale.create(payload)
+      navigate(`/sales/invoice/${sale.invoice_number}`)
+    } catch (err: any) {
+      setError(err.message || 'Checkout failed')
+      processingLock.current = false
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const cartTotal = cart.reduce((sum, item) => sum + (item.product.selling_price * item.quantity), 0)
+  
+  const cartTax = cart.reduce((sum, item) => {
+    const lineTotal = item.product.selling_price * item.quantity
+    const rate = item.product.tax_rate
+    const lineTax = Math.round((lineTotal * rate) / (10000 + rate))
+    return sum + lineTax
+  }, 0)
+
+  const cartSubtotal = cartTotal - cartTax
+
+  return (
+    <div className="font-sans max-w-7xl mx-auto h-full flex flex-col">
+      <PageHeader
+        title="Point of Sale"
+        subtitle="New Sale"
+      />
+
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 p-4 rounded-lg flex items-start">
+          <svg className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-sm text-red-800 font-medium">{error}</p>
+        </div>
+      )}
+
+      {/* Customer Selection Bar */}
+      <div className="mb-6 bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center justify-between">
+        <div className="flex-1 max-w-md relative z-30">
+          {!selectedCustomer ? (
+            <div>
+              <Input 
+                value={customerSearchQuery}
+                onChange={e => setCustomerSearchQuery(e.target.value)}
+                placeholder="Search Customer by Name or Phone..."
+                icon={
+                  <svg className="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                }
+              />
+              {customerSearchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                  {customerSearchResults.map(c => (
+                    <div 
+                      key={c.id} 
+                      className="px-4 py-3 hover:bg-teal-50 cursor-pointer border-b border-slate-50 last:border-0"
+                      onClick={() => selectCustomer(c)}
+                    >
+                      <div className="font-bold text-slate-800">{c.name}</div>
+                      <div className="text-xs text-slate-500">{c.phone}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between bg-teal-50 border border-teal-100 p-2 rounded-lg">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-teal-100 text-teal-600 flex items-center justify-center font-bold mr-3">
+                  {selectedCustomer.name.charAt(0)}
+                </div>
+                <div>
+                  <div className="font-bold text-slate-800 text-sm">{selectedCustomer.name}</div>
+                  <div className="text-xs text-slate-500">{selectedCustomer.phone}</div>
+                </div>
+              </div>
+              <button onClick={clearCustomer} className="text-slate-400 hover:text-slate-600 mr-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              </button>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center space-x-3">
+          {selectedCustomer && (
+            <Button variant="outline" onClick={() => setShowPrescriptionModal(true)}>
+              {selectedPrescriptionId ? 'Change Prescription' : 'Select Prescription'}
+            </Button>
+          )}
+          {!selectedCustomer && (
+            <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg">Walk-in Customer</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 h-full min-h-0 relative z-20">
+        
+        {/* Left Side: Search & Results */}
+        <div className="lg:col-span-2 flex flex-col min-h-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50">
+            <form onSubmit={handleBarcodeSubmit}>
+              <Input 
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, generic name, or scan barcode..."
+                className="w-full"
+                icon={
+                  <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                }
+              />
+            </form>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 bg-slate-50/30">
+            {searchQuery.trim() === '' ? (
+              <div className="text-center text-slate-400 mt-12">
+                <svg className="h-12 w-12 mx-auto text-slate-300 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                <p className="font-medium">Search for a medicine or scan a barcode to begin.</p>
+              </div>
+            ) : searchResults.length === 0 ? (
+              <div className="text-center text-slate-500 mt-12">
+                <p>No medicines found.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {searchResults.map(product => (
+                  <div key={product.id} className="bg-white p-4 rounded-lg border border-slate-200 hover:border-teal-400 hover:shadow-md transition-all flex flex-col cursor-pointer" onClick={() => addToCart(product)}>
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h4 className="font-bold text-slate-900">{product.name}</h4>
+                        {product.generic_name && <p className="text-xs text-slate-500">{product.generic_name} • {product.strength}</p>}
+                      </div>
+                      <span className="font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded text-sm">
+                        ₹{(product.selling_price / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    <div className="mt-auto pt-3 flex justify-between items-center text-sm border-t border-slate-100">
+                      <span className={product.is_active ? "text-slate-600" : "text-red-500 font-medium"}>
+                        {product.is_active ? "Active" : "Inactive"}
+                      </span>
+                      <Button size="sm" variant="outline" className="h-8 py-0">
+                        + Add
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Right Side: Cart */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col min-h-0">
+          <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center">
+            <h3 className="font-bold text-slate-900 text-lg">Current Cart</h3>
+            {selectedPrescriptionId && (
+              <span className="bg-teal-100 text-teal-800 text-xs font-bold px-2 py-1 rounded">Linked to Rx</span>
+            )}
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {cart.length === 0 ? (
+              <div className="text-center text-slate-400 mt-12">
+                <p>Cart is empty</p>
+              </div>
+            ) : (
+              cart.map(item => (
+                <div key={item.product.id} className="flex flex-col border border-slate-100 rounded-lg p-3 hover:border-slate-300 transition-colors">
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="font-medium text-slate-900">{item.product.name}</div>
+                    <div className="font-bold text-slate-700">₹{((item.product.selling_price * item.quantity) / 100).toFixed(2)}</div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                        -
+                      </button>
+                      <span className="font-medium text-sm w-4 text-center">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.product.id, 1)} className="w-7 h-7 flex items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">
+                        +
+                      </button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.product.id)} className="text-xs text-red-500 hover:text-red-700 font-medium px-2 py-1">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="p-5 border-t border-slate-200 bg-slate-50/50">
+            <div className="space-y-2 mb-4 text-sm">
+              <div className="flex justify-between text-slate-500">
+                <span>Subtotal</span>
+                <span>₹{(cartSubtotal / 100).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-500">
+                <span>Tax</span>
+                <span>₹{(cartTax / 100).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold text-lg text-slate-900 pt-2 border-t border-slate-200">
+                <span>Total</span>
+                <span className="text-teal-600">₹{(cartTotal / 100).toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Payment Method</label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['CASH', 'CARD', 'UPI'] as PaymentMethod[]).map(method => (
+                  <button
+                    key={method}
+                    onClick={() => setPaymentMethod(method)}
+                    className={`py-2 text-sm font-medium rounded-lg border transition-all ${
+                      paymentMethod === method 
+                        ? 'border-teal-500 bg-teal-50 text-teal-700' 
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    {method}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              className="w-full h-12 text-lg font-bold shadow-lg shadow-teal-500/20"
+              size="lg"
+              disabled={cart.length === 0}
+              isLoading={isProcessing}
+              onClick={handleCheckout}
+            >
+              COMPLETE SALE
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Prescription Modal */}
+      {showPrescriptionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h2 className="text-xl font-bold text-slate-800">Select Prescription</h2>
+                <p className="text-sm text-slate-500">For {selectedCustomer?.name}</p>
+              </div>
+              <button onClick={() => setShowPrescriptionModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+              {customerPrescriptions.length === 0 ? (
+                <div className="text-center py-12 text-slate-500">
+                  <p>No prescriptions found for this customer.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {customerPrescriptions.map(p => (
+                    <div 
+                      key={p.id} 
+                      className={`bg-white border rounded-lg p-4 cursor-pointer transition-colors ${selectedPrescriptionId === p.id ? 'border-teal-500 ring-1 ring-teal-500' : 'border-slate-200 hover:border-slate-300'}`}
+                      onClick={() => loadPrescription(p)}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <div className="font-bold text-slate-800">{p.doctor_name}</div>
+                          <div className="text-xs text-slate-500">{new Date(p.prescription_date).toLocaleDateString()} {p.reference_number && `• Ref: ${p.reference_number}`}</div>
+                        </div>
+                        <Button size="sm" variant="outline">Select & Load</Button>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm">
+                        <ul className="space-y-1">
+                          {p.items?.map(item => (
+                            <li key={item.id} className="flex justify-between text-slate-600">
+                              <span>• {item.medicine_name_snapshot} <span className="text-slate-400 text-xs ml-1">{item.dosage_instructions}</span></span>
+                              <span className="font-medium text-slate-500">Qty: {item.quantity}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

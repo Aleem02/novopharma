@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+release/
+build/
+
+# Installers & updater metadata
+*.exe
+*.blockmap
+
+# Database files
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+
+# Logs
+*.log
+
+# Environment (secrets)
+.env
+.env.*
+!.env.example
+
+# Local test/scratch artifacts
+scratch/
+.test_userdata/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary/debug scripts at root
+dump_schema.ts
+test_pragma.ts
+test-backup.js
