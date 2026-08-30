@@ -16,6 +16,7 @@ import schema013 from './schema/0013_transaction_audit_units.sql?raw'
 
 import schema014 from './schema/0014_pos_completion.sql?raw'
 import schema015 from './schema/0015_add_performance_indexes.sql?raw'
+import schema016 from './schema/0016_medicine_directory.sql?raw'
 
 export interface Migration {
   id: number
@@ -39,7 +40,8 @@ const MIGRATIONS: Migration[] = [
   { id: 12, name: '0012_batch_selling_price', sql: schema012 },
   { id: 13, name: '0013_transaction_audit_units', sql: schema013 },
   { id: 14, name: '0014_pos_completion', sql: schema014 },
-  { id: 15, name: '0015_add_performance_indexes', sql: schema015 }
+  { id: 15, name: '0015_add_performance_indexes', sql: schema015 },
+  { id: 16, name: '0016_medicine_directory', sql: schema016 }
 ]
 
 export class MigrationRunner {

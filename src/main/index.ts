@@ -10,6 +10,7 @@ import { UpdateService } from './services/updateService'
 import { ActivationService } from './services/activationService'
 import { InstallationIdentityService } from './security/installationIdentity'
 import { BackupManager } from './services/backupService'
+import { MedicineDirectoryService } from './services/medicineDirectoryService'
 
 // Ensure single instance lock for V1 architecture constraints
 const gotTheLock = app.requestSingleInstanceLock()
@@ -37,6 +38,10 @@ if (!gotTheLock) {
     try {
       const db = DatabaseManager.initialize()
       MigrationRunner.run(db)
+      
+      // Initialize the medicine directory asynchronously in the background
+      MedicineDirectoryService.initializeBackgroundImport()
+
       SettingService.initializeDefaults()
       BackupManager.initialize()
       isAppInitialized = true;

@@ -1,4 +1,4 @@
-import { PingResponse, CreateProductPayload, UpdateProductPayload } from '../../shared/types'
+import { PingResponse, CreateProductPayload, UpdateProductPayload, MedicineDirectoryRecord } from '../../shared/types'
 
 declare module '*.png' {
   const value: string;
@@ -29,6 +29,10 @@ declare global {
         update: (id: number, payload: import('../../shared/types').UpdateProductPayload) => Promise<import('../../shared/types').Product>
         search: (query: string) => Promise<import('../../shared/types').Product[]>
         setActive: (id: number, active: boolean) => Promise<import('../../shared/types').Product>
+      }
+      medicineDirectory: {
+        search: (query: string) => Promise<MedicineDirectoryRecord[]>
+        status: () => Promise<{ state: string; error: string | null }>
       }
       supplier: {
         list: (options?: any) => Promise<import('../../shared/types').PaginatedResult<import('../../shared/types').Supplier>>

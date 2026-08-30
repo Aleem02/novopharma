@@ -550,3 +550,18 @@ export interface CreatePrescriptionPayload {
   diagnosis_notes?: string | null
   items: CreatePrescriptionItemPayload[]
 }
+
+export interface MedicineDirectoryRecord {
+  id?: number
+  source_id?: string | null
+  name: string
+  generic_name?: string | null
+  manufacturer?: string | null
+  category?: string | null
+  dosage_form?: string | null
+  strength?: string | null
+  unit?: string | null
+  pack_type?: string | null
+  units_per_pack?: number | null
+  pack_description?: string | null
+}

@@ -26,6 +26,7 @@ import { DocumentService } from '../services/documentService'
 import { BackupService, BackupManager } from '../services/backupService'
 import { UpdateService } from '../services/updateService'
 import { PrintingService } from '../services/printingService'
+import { MedicineDirectoryService } from '../services/medicineDirectoryService'
 
 export function setupIpcHandlers() {
   ipcMain.handle('api:ping', async (event: IpcMainInvokeEvent, payload: unknown): Promise<PingResponse> => {
@@ -225,6 +226,18 @@ export function setupIpcHandlers() {
   ipcMain.handle('api:product:setActive', async (event: IpcMainInvokeEvent, { id, active }: { id: number, active: boolean }) => {
     await enforceSecureIpc(event, { isMutation: true })
     return ProductService.setProductActive(id, active)
+  })
+
+  ipcMain.handle('api:medicineDirectory:search', async (event: IpcMainInvokeEvent, query: unknown) => {
+    await enforceSecureIpc(event)
+    if (typeof query !== 'string') throw new Error('Invalid query')
+    const trimmedQuery = query.trim()
+    return MedicineDirectoryService.search(trimmedQuery)
+  })
+
+  ipcMain.handle('api:medicineDirectory:status', async (event: IpcMainInvokeEvent) => {
+    await enforceSecureIpc(event)
+    return MedicineDirectoryService.getStatus()
   })
 
   // Supplier Management

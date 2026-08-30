@@ -5,6 +5,9 @@ directories:
   buildResources: build
 files:
   - out/**/*
+extraResources:
+  - from: src/renderer/src/assets/medicine_directory.json
+    to: medicine_directory.json
 win:
   icon: build/icon.png
   target: nsis

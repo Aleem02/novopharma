@@ -52,6 +52,10 @@ const api = {
     search: (query: string) => secureInvoke('api:product:search', query),
     setActive: (id: number, active: boolean) => secureInvoke('api:product:setActive', { id, active })
   },
+  medicineDirectory: {
+    search: (query: string) => secureInvoke('api:medicineDirectory:search', query),
+    status: () => secureInvoke('api:medicineDirectory:status')
+  },
   supplier: {
     list: (options?: any) => secureInvoke('api:supplier:list', options),
     get: (id: number) => secureInvoke('api:supplier:get', id),

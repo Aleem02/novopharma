@@ -72,6 +72,81 @@ export const ProductForm: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const [suggestions, setSuggestions] = useState<any[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [searchingDirectory, setSearchingDirectory] = useState(false)
+  const [isNameFocused, setIsNameFocused] = useState(false)
+  const [directoryStatus, setDirectoryStatus] = useState<{ state: string; error: string | null }>({
+    state: 'NOT_STARTED',
+    error: null
+  })
+
+  // Poll status while importing, or fetch on mount
+  useEffect(() => {
+    let active = true
+    const checkStatus = async () => {
+      try {
+        const status = await window.api.medicineDirectory.status()
+        if (active) {
+          setDirectoryStatus(status)
+          if (status.state === 'IMPORTING') {
+            setTimeout(checkStatus, 2000)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to get directory status', err)
+      }
+    }
+    checkStatus()
+    return () => {
+      active = false
+    }
+  }, [])
+
+  // Debounced directory search
+  useEffect(() => {
+    if (formData.name.trim().length < 3 || !isNameFocused || directoryStatus.state !== 'READY') {
+      setSuggestions([])
+      setShowSuggestions(false)
+      return
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setSearchingDirectory(true)
+      try {
+        const results = await window.api.medicineDirectory.search(formData.name)
+        setSuggestions(results)
+        setShowSuggestions(results.length > 0)
+      } catch (err) {
+        console.error('Failed to search medicine directory', err)
+        setSuggestions([])
+        setShowSuggestions(false)
+      } finally {
+        setSearchingDirectory(false)
+      }
+    }, 250)
+
+    return () => clearTimeout(delayDebounceFn)
+  }, [formData.name, isNameFocused, directoryStatus.state])
+
+  const handleSelectSuggestion = (medicine: any) => {
+    setFormData(prev => ({
+      ...prev,
+      name: medicine.name || '',
+      generic_name: medicine.generic_name || '',
+      manufacturer: medicine.manufacturer || '',
+      category: medicine.category || '',
+      dosage_form: medicine.dosage_form || '',
+      strength: medicine.strength || '',
+      unit: medicine.unit || '',
+      pack_type: medicine.pack_type || '',
+      units_per_pack: medicine.units_per_pack ? medicine.units_per_pack.toString() : '',
+      pack_description: medicine.pack_description || ''
+    }))
+    setSuggestions([])
+    setShowSuggestions(false)
+  }
+
   useEffect(() => {
     fetchSuppliers()
     if (isEdit) {
@@ -253,6 +328,9 @@ export const ProductForm: React.FC = () => {
     if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
       e.preventDefault()
     }
+    if (e.key === 'Escape') {
+      setShowSuggestions(false)
+    }
   }
 
   if (loading && isEdit && !formData.name) {
@@ -286,12 +364,91 @@ export const ProductForm: React.FC = () => {
       <form onKeyDown={handleKeyDown} className="space-y-6">
         
         {/* Step 1: Essential Information */}
-        <Card>
+        <Card className="!overflow-visible">
           <CardHeader title="1. Product Identity" className="bg-slate-50/50 py-3" />
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <CardContent className="pt-4 !overflow-visible">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 !overflow-visible">
               <div className="sm:col-span-2">
-                <Input label="Medicine Name *" name="name" value={formData.name} onChange={handleChange} autoFocus required placeholder="Enter medicine  name *..." />
+                <div className="relative">
+                  <Input
+                    label="Medicine Name *"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    onFocus={() => setIsNameFocused(true)}
+                    onBlur={() => setTimeout(() => setIsNameFocused(false), 200)}
+                    autoComplete="off"
+                    autoFocus
+                    required
+                    placeholder="Enter medicine name *..."
+                  />
+
+                  {/* Search Loading Indicator */}
+                  {searchingDirectory && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg p-3 text-center text-xs text-slate-500">
+                      Searching offline directory...
+                    </div>
+                  )}
+
+                  {/* Autocomplete Dropdown */}
+                  {showSuggestions && isNameFocused && suggestions.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                      <div className="p-2 bg-slate-50 border-b border-slate-100 flex justify-between items-center text-[10px] font-semibold text-slate-500">
+                        <span>Offline Medicine Directory</span>
+                        <span className="text-teal-600 font-normal">Reference data ⓘ</span>
+                      </div>
+                      <ul className="divide-y divide-slate-100">
+                        {suggestions.map((med, index) => (
+                          <li
+                            key={med.id || index}
+                            className="p-3 hover:bg-slate-50 cursor-pointer transition-colors"
+                            onMouseDown={() => handleSelectSuggestion(med)}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="text-sm font-semibold text-slate-800">{med.name}</div>
+                                {med.generic_name && (
+                                  <div className="text-xs text-slate-500 font-medium mt-0.5">{med.generic_name}</div>
+                                )}
+                                {med.manufacturer && (
+                                  <div className="text-[11px] text-slate-400 mt-1">{med.manufacturer}</div>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                {med.dosage_form && (
+                                  <span className="inline-block px-1.5 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-medium rounded">
+                                    {med.dosage_form}
+                                  </span>
+                                )}
+                                {med.strength && (
+                                  <div className="text-[11px] text-slate-500 font-semibold mt-1">{med.strength}</div>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+
+                {/* Disclaimer/Notice under Medicine Name */}
+                <p className="mt-1.5 text-xs text-slate-500 font-medium flex items-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-500 mr-1.5"></span>
+                  Offline Medicine Directory — Reference data only. Please verify medicine details before saving.
+                </p>
+
+                {/* Directory Status Messages */}
+                {directoryStatus.state === 'IMPORTING' && (
+                  <p className="mt-1 text-[11px] text-amber-600 font-medium">
+                    Preparing offline medicine directory… Search will be available shortly.
+                  </p>
+                )}
+                {directoryStatus.state === 'FAILED' && (
+                  <p className="mt-1 text-[11px] text-red-500 font-medium">
+                    Offline medicine directory is currently unavailable. You can still enter medicines manually.
+                  </p>
+                )}
               </div>
               <Input label="Generic Name / Salt" name="generic_name" value={formData.generic_name} onChange={handleChange} placeholder="Enter generic  name /  salt..." />
               <Input label="Manufacturer / Brand" name="manufacturer" value={formData.manufacturer} onChange={handleChange} placeholder="Enter manufacturer /  brand..." />
