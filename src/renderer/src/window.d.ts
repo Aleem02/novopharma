@@ -100,11 +100,13 @@ declare global {
         salesReturns: (start: number, end: number, page?: number, pageSize?: number) => Promise<import('../../shared/types').PaginatedResult<import('../../shared/types').SalesReturn>>
         inventory: (page?: number, pageSize?: number, lowStockOnly?: boolean) => Promise<import('../../shared/types').PaginatedResult<any>>
         financials: (start: number, end: number) => Promise<import('../../shared/types').FinancialSummary>
+        inventoryReport: (start: number, end: number, page?: number, pageSize?: number) => Promise<import('../../shared/types').PaginatedResult<any>>
+        medicinesReport: (start: number, end: number, page?: number, pageSize?: number) => Promise<import('../../shared/types').PaginatedResult<any>>
       }
       document: {
         exportInvoice: (id: number, format: 'PDF' | 'PRINT') => Promise<void>
         exportPrescription: (id: number, format: 'PDF' | 'PRINT') => Promise<void>
-        exportReportCsv: (type: 'SALES' | 'FINANCIAL', start: number, end: number) => Promise<void>
+        exportReportCsv: (type: 'SALES' | 'FINANCIAL' | 'INVENTORY' | 'PURCHASES' | 'MEDICINES', start: number, end: number) => Promise<void>
       }
       database: {
         selectBackupLocation: () => Promise<string | null>

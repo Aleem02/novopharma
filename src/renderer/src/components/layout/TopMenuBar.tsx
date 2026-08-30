@@ -144,7 +144,7 @@ export const TopMenuBar: React.FC = () => {
   }, [])
 
   return (
-    <div className="h-10 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 text-[13px] text-slate-300 shrink-0 select-none" ref={menuRef}>
+    <div className="h-14 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-3 text-[13px] text-slate-300 shrink-0 select-none" ref={menuRef}>
       <div className="flex items-center space-x-0.5 relative">
         {menus.map((menu) => (
           <div key={menu.title} className="relative">
@@ -275,16 +275,6 @@ export const TopMenuBar: React.FC = () => {
           )}
         </div>
 
-        {/* User Profile */}
-        <div className="flex items-center space-x-2 pl-2 border-l border-slate-700">
-          <div className="w-6 h-6 rounded-full bg-slate-700 overflow-hidden flex items-center justify-center">
-            <img src="https://ui-avatars.com/api/?name=Pharmacy+Owner&background=10B981&color=fff" alt="User" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[12px] font-semibold text-white leading-none">Pharmacy Owner</span>
-            <span className="text-[10px] text-slate-400">Main Branch</span>
-          </div>
-        </div>
       </div>
     </div>
   )

@@ -28,13 +28,11 @@ export const MainLayout: React.FC = () => {
     <div className="h-screen overflow-hidden bg-slate-100 flex text-slate-900 font-sans">
       {/* Sidebar */}
       <aside className="w-[220px] flex flex-col bg-[#0f172a] shadow-none border-r border-slate-800 z-20 shrink-0">
-        <div className="p-4 flex flex-col items-center gap-2 border-b border-slate-800">
-          <div className="w-full flex justify-center py-2">
-            <img src={logoUrl} alt="NovoPharma Logo" className="h-10 object-contain" />
-          </div>
+        <div className="h-14 px-4 flex items-center border-b border-slate-800 shrink-0">
+          <img src={logoUrl} alt="NovoPharma Logo" className="h-10 object-contain" />
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 overflow-y-auto">
           <nav className="px-3 mt-3 space-y-0 pb-4">
           <NavLink to="/dashboard" className={navLinkClass}>
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -84,7 +82,7 @@ export const MainLayout: React.FC = () => {
             </svg>
             Suppliers
           </NavLink>
-          <NavLink to="/purchases" className={navLinkClass}>
+          <NavLink to="/purchases" end className={navLinkClass}>
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
@@ -96,7 +94,7 @@ export const MainLayout: React.FC = () => {
             </svg>
             Purchase Returns
           </NavLink>
-          <NavLink to="/inventory" className={navLinkClass}>
+          <NavLink to="/inventory" end className={navLinkClass}>
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
@@ -109,7 +107,7 @@ export const MainLayout: React.FC = () => {
             </svg>
             Stock Adjustments
           </NavLink>
-
+ 
           <div className="pt-4 pb-1">
             <p className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
               Administration
@@ -147,11 +145,11 @@ export const MainLayout: React.FC = () => {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50">
         <TopMenuBar />
 
-        <div className="absolute top-12 right-4 z-50">
+        <div className="absolute top-16 right-4 z-50">
           <UpdateIndicator />
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-hide">
+        <div className="flex-1 overflow-y-auto p-4">
           <Outlet />
         </div>
       </main>

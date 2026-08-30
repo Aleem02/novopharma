@@ -181,6 +181,7 @@ export interface PurchaseItem {
 export interface Purchase {
   id: number
   supplier_id: number
+  supplier_name?: string
   invoice_number: string | null
   purchase_date: number
   total_amount: number

@@ -570,6 +570,14 @@ export function setupIpcHandlers() {
     await enforceSecureIpc(event)
     return ReportService.getFinancials(start, end)
   })
+  ipcMain.handle('api:report:inventoryReport', async (event: IpcMainInvokeEvent, { start, end, page, pageSize }: any) => {
+    await enforceSecureIpc(event)
+    return ReportService.getInventoryReport(start, end, page, pageSize)
+  })
+  ipcMain.handle('api:report:medicinesReport', async (event: IpcMainInvokeEvent, { start, end, page, pageSize }: any) => {
+    await enforceSecureIpc(event)
+    return ReportService.getMedicinesReport(start, end, page, pageSize)
+  })
 
   // Documents
   ipcMain.handle('api:document:exportInvoice', async (event: IpcMainInvokeEvent, { id, format }: any) => {

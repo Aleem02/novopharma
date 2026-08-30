@@ -28,7 +28,14 @@ export class ReportService {
     const countRow = db.prepare('SELECT COUNT(*) as total FROM purchases WHERE purchase_date >= ? AND purchase_date <= ?').get(start, end) as { total: number }
     const total = countRow.total
 
-    const rows = db.prepare('SELECT * FROM purchases WHERE purchase_date >= ? AND purchase_date <= ? ORDER BY purchase_date DESC LIMIT ? OFFSET ?').all(start, end, pageSize, offset) as Purchase[]
+    const rows = db.prepare(`
+      SELECT p.*, s.name as supplier_name 
+      FROM purchases p 
+      JOIN suppliers s ON p.supplier_id = s.id 
+      WHERE p.purchase_date >= ? AND p.purchase_date <= ? 
+      ORDER BY p.purchase_date DESC 
+      LIMIT ? OFFSET ?
+    `).all(start, end, pageSize, offset) as Purchase[]
 
     return {
       items: rows,
@@ -89,5 +96,48 @@ export class ReportService {
 
   static getFinancials(start: number, end: number) {
     return FinancialService.getSummaryByDateRange(start, end)
+  }
+
+  static getInventoryReport(start: number, end: number, page: number = 1, pageSize: number = 50): PaginatedResult<any> {
+    const db = DatabaseManager.getInstance()
+    const offset = (page - 1) * pageSize
+
+    const countRow = db.prepare('SELECT COUNT(*) as total FROM inventory_batches WHERE created_at >= ? AND created_at <= ?').get(start, end) as { total: number }
+    const total = countRow.total
+
+    const rows = db.prepare(`
+      SELECT ib.*, p.name as product_name 
+      FROM inventory_batches ib 
+      JOIN products p ON ib.product_id = p.id 
+      WHERE ib.created_at >= ? AND ib.created_at <= ? 
+      ORDER BY ib.created_at DESC 
+      LIMIT ? OFFSET ?
+    `).all(start, end, pageSize, offset)
+
+    return {
+      items: rows as any[],
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize)
+    }
+  }
+
+  static getMedicinesReport(start: number, end: number, page: number = 1, pageSize: number = 50): PaginatedResult<any> {
+    const db = DatabaseManager.getInstance()
+    const offset = (page - 1) * pageSize
+
+    const countRow = db.prepare('SELECT COUNT(*) as total FROM products WHERE created_at >= ? AND created_at <= ?').get(start, end) as { total: number }
+    const total = countRow.total
+
+    const rows = db.prepare('SELECT * FROM products WHERE created_at >= ? AND created_at <= ? ORDER BY created_at DESC LIMIT ? OFFSET ?').all(start, end, pageSize, offset)
+
+    return {
+      items: rows as any[],
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize)
+    }
   }
 }

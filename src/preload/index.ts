@@ -15,6 +15,10 @@ async function secureInvoke(channel: string, ...args: any[]) {
       // @ts-ignore
       window.dispatchEvent(new CustomEvent('novo:network_error', { detail: err.message }))
     }
+    
+    // Dispatch a generic API error event to render Toast notifications globally
+    // @ts-ignore
+    window.dispatchEvent(new CustomEvent('api-error', { detail: err.message || 'An error occurred' }))
     throw err
   }
 }
@@ -117,12 +121,14 @@ const api = {
     purchases: (start: number, end: number, page?: number, pageSize?: number) => secureInvoke('api:report:purchases', { start, end, page, pageSize }),
     salesReturns: (start: number, end: number, page?: number, pageSize?: number) => secureInvoke('api:report:salesReturns', { start, end, page, pageSize }),
     inventory: (page?: number, pageSize?: number, lowStockOnly?: boolean) => secureInvoke('api:report:inventory', { page, pageSize, lowStockOnly }),
-    financials: (start: number, end: number) => secureInvoke('api:report:financials', { start, end })
+    financials: (start: number, end: number) => secureInvoke('api:report:financials', { start, end }),
+    inventoryReport: (start: number, end: number, page?: number, pageSize?: number) => secureInvoke('api:report:inventoryReport', { start, end, page, pageSize }),
+    medicinesReport: (start: number, end: number, page?: number, pageSize?: number) => secureInvoke('api:report:medicinesReport', { start, end, page, pageSize })
   },
   document: {
     exportInvoice: (id: number, format: 'PDF' | 'PRINT') => secureInvoke('api:document:exportInvoice', { id, format }),
     exportPrescription: (id: number, format: 'PDF' | 'PRINT') => secureInvoke('api:document:exportPrescription', { id, format }),
-    exportReportCsv: (type: 'SALES' | 'FINANCIAL', start: number, end: number) => secureInvoke('api:document:exportReportCsv', { type, start, end })
+    exportReportCsv: (type: 'SALES' | 'FINANCIAL' | 'INVENTORY' | 'PURCHASES' | 'MEDICINES', start: number, end: number) => secureInvoke('api:document:exportReportCsv', { type, start, end })
   },
   database: {
     selectBackupLocation: () => secureInvoke('api:database:selectBackupLocation'),

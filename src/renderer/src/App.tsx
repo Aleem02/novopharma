@@ -26,11 +26,13 @@ import { EditBatch } from './components/inventory/EditBatch'
 import { SettingsView } from './components/settings/SettingsView'
 import { ReportDashboard } from './components/reports/ReportDashboard'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { ToastProvider } from './components/ui/Toast'
 
 const App: React.FC = () => {
   return (
-    <ErrorBoundary>
-      <Routes>
+    <ToastProvider>
+      <ErrorBoundary>
+        <Routes>
       <Route path="/" element={<AuthScreen />} />
       <Route element={<MainLayout />}>
         <Route path="/dashboard" element={<Dashboard />} />
@@ -76,7 +78,8 @@ const App: React.FC = () => {
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </ErrorBoundary>
+      </ErrorBoundary>
+    </ToastProvider>
   )
 }
 

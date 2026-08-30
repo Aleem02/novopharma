@@ -220,7 +220,7 @@ export class DocumentService {
     }
   }
 
-  static async exportReportCsv(type: 'SALES' | 'FINANCIAL', start: number, end: number): Promise<void> {
+  static async exportReportCsv(type: 'SALES' | 'FINANCIAL' | 'INVENTORY' | 'PURCHASES' | 'MEDICINES', start: number, end: number): Promise<void> {
     let csv = ''
     if (type === 'SALES') {
       const res = ReportService.getSales(start, end, 1, 1000000)
@@ -235,6 +235,24 @@ export class DocumentService {
       csv += `Returns,${(summary.returnsRefunds/100).toFixed(2)}\n`
       csv += `Net Sales,${(summary.netSales/100).toFixed(2)}\n`
       csv += `Total Tax,${(summary.totalTax/100).toFixed(2)}\n`
+    } else if (type === 'INVENTORY') {
+      const res = ReportService.getInventoryReport(start, end, 1, 1000000)
+      csv = 'Product Name,Batch Number,Expiry Date,Quantity,MRP,Purchase Price,Received Date\n'
+      res.items.forEach(ib => {
+        csv += `"${ib.product_name || ''}",${ib.batch_number},${new Date(ib.expiry_date).toISOString().split('T')[0]},${ib.quantity},${(ib.mrp/100).toFixed(2)},${(ib.purchase_price/100).toFixed(2)},${new Date(ib.created_at).toISOString()}\n`
+      })
+    } else if (type === 'PURCHASES') {
+      const res = ReportService.getPurchases(start, end, 1, 1000000)
+      csv = 'Invoice Number,Supplier,Purchase Date,Status,Total Amount\n'
+      res.items.forEach(p => {
+        csv += `${p.invoice_number || ''},"${p.supplier_name || p.supplier_id}",${new Date(p.purchase_date).toISOString().split('T')[0]},${p.status},${(p.total_amount/100).toFixed(2)}\n`
+      })
+    } else if (type === 'MEDICINES') {
+      const res = ReportService.getMedicinesReport(start, end, 1, 1000000)
+      csv = 'Name,Generic Name,Manufacturer,Category,Dosage Form,Strength,Unit,Barcode,Selling Price,Tax Rate,Is Active,Created Date\n'
+      res.items.forEach(m => {
+        csv += `"${m.name || ''}","${m.generic_name || ''}","${m.manufacturer || ''}","${m.category || ''}","${m.dosage_form || ''}","${m.strength || ''}","${m.unit || ''}","${m.barcode || ''}",${(m.selling_price/100).toFixed(2)},${m.tax_rate}%,${m.is_active ? 'Active' : 'Inactive'},${new Date(m.created_at).toISOString()}\n`
+      })
     }
 
     const { canceled, filePath } = await dialog.showSaveDialog({

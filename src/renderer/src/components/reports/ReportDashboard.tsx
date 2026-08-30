@@ -3,8 +3,10 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { A4DocumentLayout } from './A4DocumentLayout'
 import { renderToPrintHtml } from '../../utils/printUtils'
+import { useToast } from '../ui/Toast'
 
 export const ReportDashboard: React.FC = () => {
+  const { showToast } = useToast()
   const [startDate, setStartDate] = useState(() => {
     const d = new Date()
     d.setHours(0,0,0,0)
@@ -20,7 +22,7 @@ export const ReportDashboard: React.FC = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleExport = async (type: 'SALES' | 'FINANCIAL') => {
+  const handleExport = async (type: 'SALES' | 'FINANCIAL' | 'INVENTORY' | 'PURCHASES' | 'MEDICINES') => {
     try {
       setLoading(true)
       setError('')
@@ -28,14 +30,17 @@ export const ReportDashboard: React.FC = () => {
       const endMs = new Date(endDate).setHours(23,59,59,999)
       
       await window.api.document.exportReportCsv(type, startMs, endMs)
+      showToast(`${type.charAt(0) + type.slice(1).toLowerCase()} report exported to CSV successfully!`, 'success')
     } catch (err: any) {
-      setError(err.message || 'Export failed')
+      const msg = err.message || 'Export failed'
+      setError(msg)
+      showToast(msg, 'error')
     } finally {
       setLoading(false)
     }
   }
 
-  const handlePrintOrPdf = async (type: 'SALES' | 'FINANCIAL', action: 'PRINT' | 'PDF') => {
+  const handlePrintOrPdf = async (type: 'SALES' | 'FINANCIAL' | 'INVENTORY' | 'PURCHASES' | 'MEDICINES', action: 'PRINT' | 'PDF') => {
     try {
       setLoading(true)
       setError('')
@@ -46,6 +51,7 @@ export const ReportDashboard: React.FC = () => {
       const dateRangeStr = `${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()}`
 
       let html = ''
+      let defaultOrientation: 'portrait' | 'landscape' = 'portrait'
 
       if (type === 'SALES') {
         const res = await window.api.report.sales(startMs, endMs, 1, 10000)
@@ -87,6 +93,73 @@ export const ReportDashboard: React.FC = () => {
           orientation="portrait"
         />
         html = renderToPrintHtml(comp, 'Financial Summary')
+      } else if (type === 'INVENTORY') {
+        defaultOrientation = 'landscape'
+        const res = await window.api.report.inventoryReport(startMs, endMs, 1, 10000)
+        const columns = ['Product Name', 'Batch Number', 'Expiry Date', 'Quantity', 'MRP', 'Purchase Price', 'Received Date']
+        const items = res.items || []
+        const rows = items.map((ib: any) => [
+          ib.product_name || '',
+          ib.batch_number,
+          new Date(ib.expiry_date).toLocaleDateString(),
+          ib.quantity.toString(),
+          `₹${(ib.mrp/100).toFixed(2)}`,
+          `₹${(ib.purchase_price/100).toFixed(2)}`,
+          new Date(ib.created_at).toLocaleDateString()
+        ])
+        const comp = <A4DocumentLayout 
+          settings={settings}
+          title="Inventory Records"
+          subtitle={`Period: ${dateRangeStr}`}
+          columns={columns}
+          rows={rows}
+          orientation={defaultOrientation}
+        />
+        html = renderToPrintHtml(comp, 'Inventory Records')
+      } else if (type === 'PURCHASES') {
+        const res = await window.api.report.purchases(startMs, endMs, 1, 10000)
+        const columns = ['Invoice #', 'Supplier', 'Purchase Date', 'Status', 'Total Amount']
+        const items = res.items || []
+        const rows = items.map((p: any) => [
+          p.invoice_number || '',
+          p.supplier_name || p.supplier_id.toString(),
+          new Date(p.purchase_date).toLocaleDateString(),
+          p.status,
+          `₹${(p.total_amount/100).toFixed(2)}`
+        ])
+        const comp = <A4DocumentLayout 
+          settings={settings}
+          title="Purchases Report"
+          subtitle={`Period: ${dateRangeStr}`}
+          columns={columns}
+          rows={rows}
+          orientation="portrait"
+        />
+        html = renderToPrintHtml(comp, 'Purchases Report')
+      } else if (type === 'MEDICINES') {
+        defaultOrientation = 'landscape'
+        const res = await window.api.report.medicinesReport(startMs, endMs, 1, 10000)
+        const columns = ['Name', 'Generic Name', 'Category', 'Dosage Form', 'Strength', 'Unit', 'Selling Price', 'Created Date']
+        const items = res.items || []
+        const rows = items.map((m: any) => [
+          m.name,
+          m.generic_name || '',
+          m.category || '',
+          m.dosage_form || '',
+          m.strength || '',
+          m.unit || '',
+          `₹${(m.selling_price/100).toFixed(2)}`,
+          new Date(m.created_at).toLocaleDateString()
+        ])
+        const comp = <A4DocumentLayout 
+          settings={settings}
+          title="Medicine Registered Report"
+          subtitle={`Period: ${dateRangeStr}`}
+          columns={columns}
+          rows={rows}
+          orientation={defaultOrientation}
+        />
+        html = renderToPrintHtml(comp, 'Medicine Registered Report')
       }
 
       if (action === 'PRINT') {
@@ -94,25 +167,24 @@ export const ReportDashboard: React.FC = () => {
         if (!printer) throw new Error('No A4 printer selected in Settings.')
         await window.api.print.printDocument(html, {
           deviceName: printer,
-          landscape: false,
+          landscape: defaultOrientation === 'landscape',
           pageSize: 'A4'
         })
+        showToast(`Print job successfully sent to printer: "${printer}"`, 'success')
       } else if (action === 'PDF') {
-        // PDF Export is best supported using the system print dialog in main process if we want a save dialog
-        // For now, since PrintService is headless, we can use a "Save as PDF" printer or we can trigger documentService.
-        // Wait, documentService doesn't have a generic HTML to PDF yet, it only has exportInvoice/Prescription.
-        // Let's just instruct users to select "Microsoft Print to PDF" or use the Print method.
-        // Actually, let's just trigger print, and user can select Print to PDF.
-        alert('To export as PDF, select your System PDF Printer (e.g., Microsoft Print to PDF) during printing, or ensure it is set as your default A4 printer.')
+        showToast('To save as PDF, select your system PDF printer (e.g., Microsoft Print to PDF) in the following print dialog.', 'info')
         const printer = settings.a4_printer_name
         if (!printer) throw new Error('No A4 printer selected in Settings.')
         await window.api.print.printDocument(html, {
           deviceName: printer,
+          landscape: defaultOrientation === 'landscape',
           pageSize: 'A4'
         })
       }
     } catch (err: any) {
-      setError(err.message || 'Print/Export failed')
+      const msg = err.message || 'Print/Export failed'
+      setError(msg)
+      showToast(msg, 'error')
     } finally {
       setLoading(false)
     }
@@ -122,7 +194,20 @@ export const ReportDashboard: React.FC = () => {
     <div className="max-w-4xl mx-auto">
       <h1 className="text-2xl font-bold mb-6">Reports & Exports</h1>
       
-      {error && <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>}
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button 
+            onClick={() => setError('')} 
+            className="ml-4 text-red-700 hover:text-red-900 shrink-0 focus:outline-none"
+            aria-label="Dismiss error"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Date Range</h2>
@@ -174,6 +259,54 @@ export const ReportDashboard: React.FC = () => {
               PDF
             </Button>
             <Button onClick={() => handleExport('SALES')} disabled={loading} className="w-full mt-2">
+              Export to CSV
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-start">
+          <h2 className="text-lg font-semibold mb-2">Inventory Records</h2>
+          <p className="text-slate-500 mb-6 text-sm">Export details of all inventory batches received within the selected date range.</p>
+          <div className="flex flex-wrap gap-2 mt-auto w-full">
+            <Button onClick={() => handlePrintOrPdf('INVENTORY', 'PRINT')} disabled={loading} variant="outline" className="flex-1">
+              Print A4
+            </Button>
+            <Button onClick={() => handlePrintOrPdf('INVENTORY', 'PDF')} disabled={loading} variant="outline" className="flex-1">
+              PDF
+            </Button>
+            <Button onClick={() => handleExport('INVENTORY')} disabled={loading} className="w-full mt-2">
+              Export to CSV
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-start">
+          <h2 className="text-lg font-semibold mb-2">Purchases</h2>
+          <p className="text-slate-500 mb-6 text-sm">Export a log of all goods receipt/purchase invoices within the selected date range.</p>
+          <div className="flex flex-wrap gap-2 mt-auto w-full">
+            <Button onClick={() => handlePrintOrPdf('PURCHASES', 'PRINT')} disabled={loading} variant="outline" className="flex-1">
+              Print A4
+            </Button>
+            <Button onClick={() => handlePrintOrPdf('PURCHASES', 'PDF')} disabled={loading} variant="outline" className="flex-1">
+              PDF
+            </Button>
+            <Button onClick={() => handleExport('PURCHASES')} disabled={loading} className="w-full mt-2">
+              Export to CSV
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col items-start">
+          <h2 className="text-lg font-semibold mb-2">Medicine Registered</h2>
+          <p className="text-slate-500 mb-6 text-sm">Export a list of all products and medicines registered in the system within the selected date range.</p>
+          <div className="flex flex-wrap gap-2 mt-auto w-full">
+            <Button onClick={() => handlePrintOrPdf('MEDICINES', 'PRINT')} disabled={loading} variant="outline" className="flex-1">
+              Print A4
+            </Button>
+            <Button onClick={() => handlePrintOrPdf('MEDICINES', 'PDF')} disabled={loading} variant="outline" className="flex-1">
+              PDF
+            </Button>
+            <Button onClick={() => handleExport('MEDICINES')} disabled={loading} className="w-full mt-2">
               Export to CSV
             </Button>
           </div>
