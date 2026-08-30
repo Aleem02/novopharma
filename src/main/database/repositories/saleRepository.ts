@@ -44,7 +44,7 @@ export class SaleRepository {
     if (sale.customer_id) {
       sale.customer = CustomerRepository.findById(sale.customer_id)
     }
-    
+
     if (sale.prescription_id) {
       sale.prescription = PrescriptionRepository.findById(sale.prescription_id)
     }
@@ -61,7 +61,7 @@ export class SaleRepository {
 
   static getPaginatedSales(options: PaginationOptions): PaginatedResult<Sale> {
     const db = DatabaseManager.getInstance()
-    let baseQuery = `FROM sales s WHERE 1=1`
+    let baseQuery = `FROM sales s LEFT JOIN customers c ON s.customer_id = c.id WHERE 1=1`
     const params: any[] = []
 
     if (options.search) {
@@ -96,11 +96,10 @@ export class SaleRepository {
     const offset = (page - 1) * pageSize
 
     const dataQuery = `
-      SELECT s.*, 
-             c.name as customer_name, c.phone as customer_phone
-      ${baseQuery} 
-      LEFT JOIN customers c ON s.customer_id = c.id
-      ${orderBy} 
+      SELECT s.*,
+      c.name as customer_name, c.phone as customer_phone
+      ${baseQuery}
+      ${orderBy}
       LIMIT ? OFFSET ?
     `
     const items = db.prepare(dataQuery).all(...params, pageSize, offset) as any[]

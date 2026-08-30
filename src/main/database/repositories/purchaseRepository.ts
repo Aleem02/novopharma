@@ -16,7 +16,7 @@ export class PurchaseRepository {
 
   static getPaginatedPurchases(options: PaginationOptions): PaginatedResult<Purchase> {
     const db = DatabaseManager.getInstance()
-    let baseQuery = `FROM purchases p WHERE 1=1`
+    let baseQuery = `FROM purchases p LEFT JOIN suppliers s ON p.supplier_id = s.id WHERE 1=1`
     const params: any[] = []
 
     if (options.search) {
@@ -47,9 +47,8 @@ export class PurchaseRepository {
 
     const dataQuery = `
       SELECT p.*, s.name as supplier_name
-      ${baseQuery} 
-      LEFT JOIN suppliers s ON p.supplier_id = s.id
-      ${orderBy} 
+      ${baseQuery}
+      ${orderBy}
       LIMIT ? OFFSET ?
     `
     const items = db.prepare(dataQuery).all(...params, pageSize, offset) as any[]
