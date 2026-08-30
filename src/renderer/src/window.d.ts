@@ -120,6 +120,7 @@ declare global {
       }
       update: {
         check: () => Promise<void>
+        download: () => Promise<void>
         apply: () => Promise<boolean>
         onStateChange: (callback: (data: any) => void) => void
         removeStateChangeListeners: () => void

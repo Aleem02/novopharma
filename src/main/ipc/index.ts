@@ -690,7 +690,13 @@ export function setupIpcHandlers() {
   // Updates
   ipcMain.handle('api:update:check', async (event: IpcMainInvokeEvent) => {
     await enforceSecureIpc(event)
-    await UpdateService.checkForUpdates()
+    await UpdateService.checkForUpdates(true)
+    return true
+  })
+
+  ipcMain.handle('api:update:download', async (event: IpcMainInvokeEvent) => {
+    await enforceSecureIpc(event)
+    await UpdateService.downloadUpdate()
     return true
   })
 

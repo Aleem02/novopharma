@@ -142,6 +142,7 @@ const api = {
   },
   update: {
     check: () => secureInvoke('api:update:check'),
+    download: () => secureInvoke('api:update:download'),
     apply: () => secureInvoke('api:update:apply'),
     onStateChange: (callback: (data: any) => void) => {
       ipcRenderer.on('api:update:onStateChange', (_event, data) => callback(data))
