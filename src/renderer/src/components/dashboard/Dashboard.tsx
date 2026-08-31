@@ -222,7 +222,7 @@ export const Dashboard: React.FC = () => {
                 <thead className="bg-slate-50 text-[10px] uppercase text-slate-500 font-bold sticky top-0">
                   <tr>
                     <th className="px-4 py-2 border-b border-slate-100">Invoice No.</th>
-                    <th className="px-4 py-2 border-b border-slate-100">Time</th>
+                    <th className="px-4 py-2 border-b border-slate-100">Date</th>
                     <th className="px-4 py-2 border-b border-slate-100 text-right">Amount</th>
                     <th className="px-4 py-2 border-b border-slate-100 text-center">Status</th>
                   </tr>
@@ -231,7 +231,7 @@ export const Dashboard: React.FC = () => {
                   {summary.recentSales.map((sale) => (
                     <tr key={sale.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-2 font-semibold text-teal-700">{sale.invoice_number}</td>
-                      <td className="px-4 py-2 text-slate-500">{new Date(sale.sale_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                      <td className="px-4 py-2 text-slate-500">{new Date(sale.sale_date).toLocaleDateString()}</td>
                       <td className="px-4 py-2 text-right font-bold text-slate-900">{formatPaise(sale.total_amount)}</td>
                       <td className="px-4 py-2 text-center">
                         <span className={`inline-flex items-center justify-center px-2 py-0.5 text-[9px] font-bold rounded ${
