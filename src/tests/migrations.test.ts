@@ -28,7 +28,7 @@ describe('Migration Reliability', () => {
     // First run
     MigrationRunner.run(db)
     const version = db.prepare('SELECT MAX(id) as v FROM _migrations').get() as { v: number }
-    expect(version.v).toBe(15)
+    expect(version.v).toBe(16)
     
     // Check applied_at
     const initialTime = (db.prepare('SELECT applied_at FROM _migrations WHERE id = 1').get() as any).applied_at

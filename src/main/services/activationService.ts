@@ -129,4 +129,98 @@ export class ActivationService {
         return { status: 'ERROR', message: 'Unable to activate this installation right now.' }
     }
   }
+
+  /**
+   * Synchronizes the installation activation status with the backend.
+   * If online, checks status on backend and updates local configuration.
+   * If offline, fails silently and preserves last known local activation state.
+   */
+  static async syncStatusWithBackend(): Promise<void> {
+    try {
+      if (!(await FirebaseAuthService.isAuthenticated())) {
+        return
+      }
+
+      let identity: PublicInstallationMetadata
+      try {
+        identity = InstallationIdentityService.initializeIdentity()
+      } catch (err) {
+        Logger.error('Activation', 'Failed to retrieve local identity for sync', err)
+        return
+      }
+
+      // @ts-ignore
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.novopharma.test'
+
+      let response: { activated: boolean }
+      try {
+        response = await ApiClient.request(`${backendUrl}/api/desktop/activation/status`, {
+          method: 'POST',
+          body: JSON.stringify({
+            installationId: identity.installationId
+          })
+        })
+      } catch (err: any) {
+        if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
+          Logger.warn('Activation', `Machine status is unauthorized/not found on server (HTTP ${err.status}). Deactivating locally.`)
+          InstallationIdentityService.setActivationStatus(false)
+        } else {
+          Logger.warn('Activation', `Failed to contact activation status server: ${err.message}. Preserving cached local status.`)
+        }
+        return
+      }
+
+      if (response && typeof response.activated === 'boolean') {
+        const localActivated = InstallationIdentityService.isActivated()
+        if (localActivated !== response.activated) {
+          Logger.info('Activation', `Syncing activation status from backend: ${localActivated} -> ${response.activated}`)
+          InstallationIdentityService.setActivationStatus(response.activated)
+        }
+      }
+    } catch (error: any) {
+      Logger.error('Activation', `Unexpected error during activation sync: ${error.message}`)
+    }
+  }
+
+  /**
+   * Checks activation status from the backend.
+   * Required by Vitest activationService test suite.
+   */
+  static async isInstallationActivated(): Promise<boolean> {
+    try {
+      if (!(await FirebaseAuthService.isAuthenticated())) {
+        return false
+      }
+
+      let identity: PublicInstallationMetadata
+      try {
+        identity = InstallationIdentityService.initializeIdentity()
+      } catch (err) {
+        return false
+      }
+
+      // @ts-ignore
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://api.novopharma.test'
+
+      try {
+        const response = await ApiClient.request(`${backendUrl}/api/desktop/activation/status`, {
+          method: 'POST',
+          body: JSON.stringify({
+            installationId: identity.installationId
+          })
+        })
+
+        if (response && response.activated === true) {
+          InstallationIdentityService.markAsActivated()
+          return true
+        }
+      } catch {
+        return false
+      }
+
+      return false
+    } catch {
+      return false
+    }
+  }
 }

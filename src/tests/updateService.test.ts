@@ -72,7 +72,7 @@ describe('UpdateService', () => {
 
   it('initializes correctly', () => {
     UpdateService.initialize()
-    expect(autoUpdater.autoDownload).toBe(true)
+    expect(autoUpdater.autoDownload).toBe(false)
     expect(autoUpdater.autoInstallOnAppQuit).toBe(false)
   })
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { CreatePrescriptionPayload, Product } from '../../../../shared/types'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
@@ -28,6 +28,8 @@ export const PrescriptionForm: React.FC<PrescriptionFormProps> = ({ customerId, 
 
   const [productSearch, setProductSearch] = useState('')
   const [searchResults, setSearchResults] = useState<Product[]>([])
+  const [selectedResultIndex, setSelectedResultIndex] = useState(-1)
+  const productContainerRef = useRef<HTMLDivElement>(null)
   
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -38,13 +40,16 @@ export const PrescriptionForm: React.FC<PrescriptionFormProps> = ({ customerId, 
         try {
           const results = await window.api.product.search(productSearch)
           setSearchResults(results)
+          setSelectedResultIndex(-1)
         } catch (e) {
           console.error(e)
+          setSelectedResultIndex(-1)
         }
       }, 300)
       return () => clearTimeout(delay)
     } else {
       setSearchResults([])
+      setSelectedResultIndex(-1)
     }
   }, [productSearch])
 
@@ -87,6 +92,38 @@ export const PrescriptionForm: React.FC<PrescriptionFormProps> = ({ customerId, 
     setItems(items.filter((_, i) => i !== index))
   }
 
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      if (searchResults.length > 0) {
+        e.preventDefault()
+        setSelectedResultIndex(prev => (prev < searchResults.length - 1 ? prev + 1 : prev))
+      }
+    } else if (e.key === 'ArrowUp') {
+      if (searchResults.length > 0) {
+        e.preventDefault()
+        setSelectedResultIndex(prev => (prev > 0 ? prev - 1 : 0))
+      }
+    } else if (e.key === 'Enter') {
+      if (selectedResultIndex >= 0 && selectedResultIndex < searchResults.length) {
+        e.preventDefault()
+        addProduct(searchResults[selectedResultIndex])
+      }
+    } else if (e.key === 'Escape') {
+      setSearchResults([])
+      setSelectedResultIndex(-1)
+    }
+  }
+
+  // Auto-scroll selected product into view
+  useEffect(() => {
+    if (selectedResultIndex >= 0 && productContainerRef.current) {
+      const activeElement = productContainerRef.current.querySelector('.active-product')
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [selectedResultIndex])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -112,7 +149,7 @@ export const PrescriptionForm: React.FC<PrescriptionFormProps> = ({ customerId, 
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 relative">
+    <div className="flex flex-col min-h-0 flex-1 bg-slate-50 relative">
       <div className="bg-white p-6 border-b border-slate-200 shadow-sm z-10 flex-shrink-0">
         <h2 className="text-xl font-bold text-slate-800">Add New Prescription</h2>
         <p className="text-sm text-slate-500">Record a prescription for this patient.</p>
@@ -164,13 +201,16 @@ export const PrescriptionForm: React.FC<PrescriptionFormProps> = ({ customerId, 
                     placeholder="Type medicine name..."
                     value={productSearch}
                     onChange={e => setProductSearch(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
                   />
                   {searchResults.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-                      {searchResults.map(p => (
+                    <div ref={productContainerRef} className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto">
+                      {searchResults.map((p, index) => (
                         <div 
                           key={p.id} 
-                          className="px-4 py-3 hover:bg-teal-50 cursor-pointer border-b border-slate-50 last:border-0"
+                          className={`px-4 py-3 cursor-pointer border-b border-slate-50 last:border-0 transition-colors ${
+                            index === selectedResultIndex ? 'bg-teal-50 font-semibold shadow-sm active-product' : 'hover:bg-teal-50'
+                          }`}
                           onClick={() => addProduct(p)}
                         >
                           <div className="font-bold text-slate-800">{p.name}</div>

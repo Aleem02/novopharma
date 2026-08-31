@@ -21,6 +21,7 @@ declare global {
         registerKey: (activationCode: string) => Promise<{ status: string, message?: string }>
         activate: () => Promise<{ status: string, message?: string, installationId?: string }>
         isActivated: () => Promise<boolean>
+        syncStatus: () => Promise<void>
       }
       product: {
         list: (options?: any) => Promise<import('../../shared/types').PaginatedResult<import('../../shared/types').Product>>

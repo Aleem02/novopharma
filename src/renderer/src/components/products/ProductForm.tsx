@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PageHeader } from '../ui/PageHeader'
 import { Button } from '../ui/Button'
@@ -29,6 +29,7 @@ export const ProductForm: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [hasHistory, setHasHistory] = useState(false)
   const [showMore, setShowMore] = useState(isEdit)
+  const suggestionsContainerRef = useRef<HTMLDivElement>(null)
 
   const [formData, setFormData] = useState({
     // Product Identity
@@ -73,6 +74,7 @@ export const ProductForm: React.FC = () => {
   const [error, setError] = useState('')
 
   const [suggestions, setSuggestions] = useState<any[]>([])
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [searchingDirectory, setSearchingDirectory] = useState(false)
   const [isNameFocused, setIsNameFocused] = useState(false)
@@ -108,6 +110,7 @@ export const ProductForm: React.FC = () => {
     if (formData.name.trim().length < 3 || !isNameFocused || directoryStatus.state !== 'READY') {
       setSuggestions([])
       setShowSuggestions(false)
+      setSelectedSuggestionIndex(-1)
       return
     }
 
@@ -117,10 +120,12 @@ export const ProductForm: React.FC = () => {
         const results = await window.api.medicineDirectory.search(formData.name)
         setSuggestions(results)
         setShowSuggestions(results.length > 0)
+        setSelectedSuggestionIndex(-1)
       } catch (err) {
         console.error('Failed to search medicine directory', err)
         setSuggestions([])
         setShowSuggestions(false)
+        setSelectedSuggestionIndex(-1)
       } finally {
         setSearchingDirectory(false)
       }
@@ -146,6 +151,16 @@ export const ProductForm: React.FC = () => {
     setSuggestions([])
     setShowSuggestions(false)
   }
+
+  // Auto-scroll selected medicine suggestion into view
+  useEffect(() => {
+    if (selectedSuggestionIndex >= 0 && suggestionsContainerRef.current) {
+      const activeElement = suggestionsContainerRef.current.querySelector('.active-suggestion')
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [selectedSuggestionIndex])
 
   useEffect(() => {
     fetchSuppliers()
@@ -333,6 +348,28 @@ export const ProductForm: React.FC = () => {
     }
   }
 
+  const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      if (suggestions.length > 0) {
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev))
+      }
+    } else if (e.key === 'ArrowUp') {
+      if (suggestions.length > 0) {
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => (prev > 0 ? prev - 1 : 0))
+      }
+    } else if (e.key === 'Enter') {
+      if (selectedSuggestionIndex >= 0 && selectedSuggestionIndex < suggestions.length) {
+        e.preventDefault()
+        handleSelectSuggestion(suggestions[selectedSuggestionIndex])
+      }
+    } else if (e.key === 'Escape') {
+      setShowSuggestions(false)
+      setSelectedSuggestionIndex(-1)
+    }
+  }
+
   if (loading && isEdit && !formData.name) {
     return <div className="flex items-center justify-center min-h-[400px]">Loading...</div>
   }
@@ -377,6 +414,7 @@ export const ProductForm: React.FC = () => {
                     onChange={handleChange}
                     onFocus={() => setIsNameFocused(true)}
                     onBlur={() => setTimeout(() => setIsNameFocused(false), 200)}
+                    onKeyDown={handleNameKeyDown}
                     autoComplete="off"
                     autoFocus
                     required
@@ -392,7 +430,7 @@ export const ProductForm: React.FC = () => {
 
                   {/* Autocomplete Dropdown */}
                   {showSuggestions && isNameFocused && suggestions.length > 0 && (
-                    <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                    <div ref={suggestionsContainerRef} className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
                       <div className="p-2 bg-slate-50 border-b border-slate-100 flex justify-between items-center text-[10px] font-semibold text-slate-500">
                         <span>Offline Medicine Directory</span>
                         <span className="text-teal-600 font-normal">Reference data ⓘ</span>
@@ -401,7 +439,9 @@ export const ProductForm: React.FC = () => {
                         {suggestions.map((med, index) => (
                           <li
                             key={med.id || index}
-                            className="p-3 hover:bg-slate-50 cursor-pointer transition-colors"
+                            className={`p-3 cursor-pointer transition-colors ${
+                              index === selectedSuggestionIndex ? 'bg-slate-100 font-semibold shadow-sm active-suggestion' : 'hover:bg-slate-50'
+                            }`}
                             onMouseDown={() => handleSelectSuggestion(med)}
                           >
                             <div className="flex justify-between items-start">

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { StockAdjustment } from '../../../../shared/types'
+import { Input } from '../ui/Input'
 
 export const StockAdjustments: React.FC = () => {
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,6 +25,16 @@ export const StockAdjustments: React.FC = () => {
   useEffect(() => {
     fetchAdjustments()
   }, [])
+
+  const filteredAdjustments = adjustments.filter(adj => {
+    const query = searchQuery.toLowerCase()
+    return (
+      adj.batch_number.toLowerCase().includes(query) ||
+      `id: ${adj.product_id}`.toLowerCase().includes(query) ||
+      (adj.reason || '').toLowerCase().includes(query) ||
+      (adj.adjusted_by || '').toLowerCase().includes(query)
+    )
+  })
 
   if (loading) {
     return (
@@ -48,6 +60,20 @@ export const StockAdjustments: React.FC = () => {
         </Link>
       </div>
 
+      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+        <Input
+          className="max-w-md bg-white text-sm"
+          placeholder="Search by Batch Number, Product Ref, or Operator..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          icon={
+            <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          }
+        />
+      </div>
+
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">
           <p>{error}</p>
@@ -61,6 +87,10 @@ export const StockAdjustments: React.FC = () => {
           </svg>
           <h3 className="font-bold text-slate-700">No Adjustments Found</h3>
           <p className="text-sm text-slate-400 mt-1">Every stock change is securely tracked here.</p>
+        </div>
+      ) : filteredAdjustments.length === 0 ? (
+        <div className="bg-white border border-slate-100 p-12 text-center rounded-xl shadow-sm">
+          <p className="text-sm text-slate-400">No stock adjustments match your search query.</p>
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
@@ -77,7 +107,7 @@ export const StockAdjustments: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm font-medium">
-              {adjustments.map((adj) => (
+              {filteredAdjustments.map((adj) => (
                 <tr key={adj.id} className="hover:bg-slate-50/50">
                   <td className="px-6 py-4 text-slate-900 font-bold">ID: {adj.product_id}</td>
                   <td className="px-6 py-4 text-slate-600 font-bold">{adj.batch_number}</td>

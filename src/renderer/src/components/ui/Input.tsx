@@ -30,7 +30,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 : 'border border-slate-300 text-slate-900 placeholder-slate-400 focus:border-teal-500 focus:ring-teal-500'}
               ${className}
             `}
-            {...props} placeholder="Enter value..."
+            placeholder="Enter value..." {...props}
           />
         </div>
         {error && (

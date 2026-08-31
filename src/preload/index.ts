@@ -41,7 +41,8 @@ const api = {
   activation: {
     activate: () => secureInvoke('api:activation:activate'),
     isActivated: () => secureInvoke('api:activation:isActivated'),
-    registerKey: (activationCode: string) => secureInvoke('api:activation:registerKey', activationCode)
+    registerKey: (activationCode: string) => secureInvoke('api:activation:registerKey', activationCode),
+    syncStatus: () => secureInvoke('api:activation:syncStatus')
   },
   health: () => secureInvoke('api:health'),
   product: {

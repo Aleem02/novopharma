@@ -211,6 +211,26 @@ export class InstallationIdentityService {
   }
 
   /**
+   * Updates the local activation status in the configuration.
+   */
+  static setActivationStatus(status: boolean): void {
+    InstallationIdentityService.ensureSafeStorageAvailable()
+
+    const identityPath = this.getIdentityFilePath()
+    if (!fs.existsSync(identityPath)) {
+      throw new Error('FATAL: Cannot update status, installation identity is missing.')
+    }
+
+    const fileData = fs.readFileSync(identityPath, 'utf8')
+    const identity: InstallationIdentity = JSON.parse(fileData)
+
+    identity.isActivated = status
+
+    fs.writeFileSync(identityPath, JSON.stringify(identity, null, 2), 'utf8')
+    Logger.info('Security', `Successfully updated installation identity activation status to ${status}.`)
+  }
+
+  /**
    * Checks if the installation is activated.
    */
   static isActivated(): boolean {

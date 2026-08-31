@@ -34,13 +34,21 @@ describe('BackupService', () => {
   const backupDbPath = path.join(testDir, 'test_backup.sqlite')
   const corruptDbPath = path.join(testDir, 'test_corrupt.sqlite')
   const fkInvalidDbPath = path.join(testDir, 'test_fk_invalid.sqlite')
-
   beforeEach(() => {
     // Clean up
     [mockDbPath, backupDbPath, corruptDbPath, fkInvalidDbPath].forEach(p => {
       if (fs.existsSync(p)) fs.unlinkSync(p)
       if (fs.existsSync(p + '-wal')) fs.unlinkSync(p + '-wal')
       if (fs.existsSync(p + '-shm')) fs.unlinkSync(p + '-shm')
+    })
+
+    // Clean up old safety backups
+    fs.readdirSync(testDir).forEach(f => {
+      if (f.startsWith('safety_backup_')) {
+        try {
+          fs.unlinkSync(path.join(testDir, f))
+        } catch (e) {}
+      }
     })
 
     // Setup active db mock

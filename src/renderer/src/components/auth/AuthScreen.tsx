@@ -26,7 +26,13 @@ export const AuthScreen: React.FC = () => {
         setIsAuth(authenticated)
         
         if (authenticated) {
-          // Authoritative local check on every startup
+          // Sync activation status with backend if online, then perform authoritative local check
+          try {
+            await window.api.activation.syncStatus()
+          } catch (syncErr) {
+            console.warn('Unable to sync status with backend on startup:', syncErr)
+          }
+
           const activated = await window.api.activation.isActivated()
           if (activated) {
             navigate('/sales/pos')
@@ -60,7 +66,13 @@ export const AuthScreen: React.FC = () => {
       const result = await window.api.auth.signIn({ email, password })
       if (result.status === 'SUCCESS') {
         setIsAuth(true)
-        // Check authoritative local activation status immediately after successful login
+        // Sync activation status with backend after login
+        try {
+          await window.api.activation.syncStatus()
+        } catch (syncErr) {
+          console.warn('Unable to sync status with backend after login:', syncErr)
+        }
+
         const isBackendActivated = await window.api.activation.isActivated()
         if (isBackendActivated) {
           navigate('/sales/pos')

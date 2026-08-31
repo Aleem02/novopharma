@@ -147,6 +147,25 @@ export function setupIpcHandlers() {
     return InstallationIdentityService.isActivated()
   })
 
+  ipcMain.handle('api:activation:syncStatus', async (event: IpcMainInvokeEvent): Promise<void> => {
+    // Validate Sender
+    const url = event.senderFrame?.url
+    let isTrusted = false
+    if (url) {
+      if (app.isPackaged) {
+        isTrusted = url.startsWith('file://') && url.includes('renderer/index.html')
+      } else {
+        isTrusted = url.startsWith(process.env['ELECTRON_RENDERER_URL'] || 'http://localhost:5173')
+      }
+    }
+    if (!isTrusted) {
+      Logger.error('IPC', 'Unauthorized sender attempted activation call', { url })
+      throw new Error('Unauthorized sender')
+    }
+
+    await ActivationService.syncStatusWithBackend()
+  })
+
 
   ipcMain.handle('api:activation:registerKey', async (event: IpcMainInvokeEvent, activationCode: unknown): Promise<any> => {
     // Validate Sender

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 // @ts-ignore
 import logoUrl from '../../assets/logo.png'
 import { UpdateIndicator } from './UpdateIndicator'
@@ -7,6 +7,28 @@ import { TopMenuBar } from './TopMenuBar'
 
 export const MainLayout: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Global F1, F2, F8 keyboard shortcuts to redirect to POS Screen
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (location.pathname !== '/sales/pos') {
+        if (e.key === 'F1') {
+          e.preventDefault()
+          navigate('/sales/pos', { state: { triggerShortcut: 'F1' } })
+        } else if (e.key === 'F2') {
+          e.preventDefault()
+          navigate('/sales/pos', { state: { triggerShortcut: 'F2' } })
+        } else if (e.key === 'F8') {
+          e.preventDefault()
+          navigate('/sales/pos', { state: { triggerShortcut: 'F8' } })
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleGlobalKeyDown)
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown)
+  }, [location.pathname, navigate])
 
   const handleLogout = async () => {
     try {

@@ -14,6 +14,7 @@ export class BackupService {
   static async createBackup(destinationPath: string): Promise<boolean> {
     try {
       const db = DatabaseManager.getInstance()
+      db.pragma('wal_checkpoint(TRUNCATE)')
       Logger.info('Backup', `Starting backup to ${destinationPath}`)
       await db.backup(destinationPath)
       Logger.info('Backup', `Backup created successfully at ${destinationPath}`)
@@ -86,6 +87,8 @@ export class BackupService {
         throw new Error('Cannot restore while a transaction is active. Please try again.')
       }
 
+      db.pragma('wal_checkpoint(TRUNCATE)')
+
       const userData = app.getPath('userData')
       const safetyBackupPath = join(userData, `safety_backup_${Date.now()}.sqlite`)
       Logger.info('Backup', `Creating safety backup at ${safetyBackupPath}`)
@@ -100,7 +103,7 @@ export class BackupService {
       DatabaseManager.close()
       
       const userData = app.getPath('userData')
-      const targetDbPath = join(userData, 'novopharma_v1.sqlite')
+      const targetDbPath = (DatabaseManager as any).dbPath || join(userData, 'novopharma_v1.sqlite')
       const walPath = targetDbPath + '-wal'
       const shmPath = targetDbPath + '-shm'
       

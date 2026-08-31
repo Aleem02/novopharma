@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Product, POSCartItem, PaymentMethod, Customer, Prescription, DiscountType, SalePayment } from '../../../../shared/types'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { CustomerForm } from '../customers/CustomerForm'
 
 export const POSScreen: React.FC = () => {
@@ -32,6 +32,7 @@ export const POSScreen: React.FC = () => {
   const [customerSearchQuery, setCustomerSearchQuery] = useState('')
   const [customerSearchResults, setCustomerSearchResults] = useState<Customer[]>([])
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
+  const [selectedCustomerIndex, setSelectedCustomerIndex] = useState(-1)
   
   const [showPrescriptionModal, setShowPrescriptionModal] = useState(false)
   const [customerPrescriptions, setCustomerPrescriptions] = useState<Prescription[]>([])
@@ -40,11 +41,51 @@ export const POSScreen: React.FC = () => {
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false)
   
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const productContainerRef = useRef<HTMLDivElement>(null)
+  const customerContainerRef = useRef<HTMLDivElement>(null)
   const processingLock = useRef(false)
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Auto-scroll selected product into view
+  useEffect(() => {
+    if (selectedResultIndex >= 0 && productContainerRef.current) {
+      const activeElement = productContainerRef.current.querySelector('.active-product')
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [selectedResultIndex])
+
+  // Auto-scroll selected customer into view
+  useEffect(() => {
+    if (selectedCustomerIndex >= 0 && customerContainerRef.current) {
+      const activeElement = customerContainerRef.current.querySelector('.active-customer')
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [selectedCustomerIndex])
 
   useEffect(() => {
-    searchInputRef.current?.focus()
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (productContainerRef.current && !productContainerRef.current.contains(event.target as Node)) {
+        setSearchResults([])
+      }
+      if (customerContainerRef.current && !customerContainerRef.current.contains(event.target as Node)) {
+        setCustomerSearchResults([])
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   // Product Search Debounce
@@ -69,16 +110,15 @@ export const POSScreen: React.FC = () => {
   // Customer Search Debounce
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
-      if (customerSearchQuery.trim().length > 2) {
-        window.api.customer.list({ page: 1, pageSize: 10, search: customerSearchQuery }).then(results => {
-          setCustomerSearchResults(results.items)
-        }).catch(err => {
-          console.error(err)
-        })
-      } else {
-        setCustomerSearchResults([])
-      }
-    }, 300)
+      const query = customerSearchQuery.trim()
+      window.api.customer.list({ page: 1, pageSize: 10, search: query || undefined }).then(results => {
+        setCustomerSearchResults(results.items)
+        setSelectedCustomerIndex(-1)
+      }).catch(err => {
+        console.error(err)
+        setSelectedCustomerIndex(-1)
+      })
+    }, 150)
 
     return () => clearTimeout(delayDebounce)
   }, [customerSearchQuery])
@@ -87,6 +127,7 @@ export const POSScreen: React.FC = () => {
     setSelectedCustomer(customer)
     setCustomerSearchQuery('')
     setCustomerSearchResults([])
+    setSelectedCustomerIndex(-1)
     setSelectedPrescriptionId(null)
     try {
       const result = await window.api.prescription.list(customer.id, 1, 50)
@@ -225,6 +266,28 @@ export const POSScreen: React.FC = () => {
     }
   }
 
+  const handleCustomerKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      if (customerSearchResults.length > 0) {
+        e.preventDefault()
+        setSelectedCustomerIndex(prev => (prev < customerSearchResults.length - 1 ? prev + 1 : prev))
+      }
+    } else if (e.key === 'ArrowUp') {
+      if (customerSearchResults.length > 0) {
+        e.preventDefault()
+        setSelectedCustomerIndex(prev => (prev > 0 ? prev - 1 : 0))
+      }
+    } else if (e.key === 'Enter') {
+      if (selectedCustomerIndex >= 0 && selectedCustomerIndex < customerSearchResults.length) {
+        e.preventDefault()
+        selectCustomer(customerSearchResults[selectedCustomerIndex])
+      }
+    } else if (e.key === 'Escape') {
+      setCustomerSearchResults([])
+      setSelectedCustomerIndex(-1)
+    }
+  }
+
   const updateQuantity = (productId: number, delta: number) => {
     setCart(prev => prev.map(item => {
       if (item.product.id === productId) {
@@ -340,6 +403,31 @@ export const POSScreen: React.FC = () => {
       setIsProcessing(false)
     }
   }
+
+  // Handle shortcuts forwarded from other screens via location state
+  useEffect(() => {
+    if (location.state && (location.state as any).triggerShortcut) {
+      const shortcut = (location.state as any).triggerShortcut
+      // Clear navigation state so it doesn't run again on page refresh
+      window.history.replaceState({}, document.title)
+      
+      if (shortcut === 'F1') {
+        setCart([])
+        setPayments([{ payment_method: 'CASH', amount: 0 }])
+        setBillDiscountType('NONE')
+        setBillDiscountValue('')
+        clearCustomer()
+        setSearchQuery('')
+        searchInputRef.current?.focus()
+      } else if (shortcut === 'F2') {
+        handleHoldSale()
+      } else if (shortcut === 'F8') {
+        if (cart.length > 0 && !isProcessing) {
+          handleCheckout()
+        }
+      }
+    }
+  }, [location.state, cart, isProcessing, payments, selectedCustomer, selectedPrescriptionId, billDiscountType, billDiscountValue, receivedAmount])
 
   // Derived Totals
   const getCartItemBasePrices = (item: POSCartItem) => {
@@ -516,11 +604,11 @@ export const POSScreen: React.FC = () => {
               
               {/* Absolute Dropdown for Search Results */}
               {searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-80 overflow-y-auto z-50">
+                <div ref={productContainerRef} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-80 overflow-y-auto z-50">
                   {searchResults.map((product, index) => (
                     <div 
                       key={product.id} 
-                      className={`p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 flex justify-between items-center transition-colors ${selectedResultIndex === index ? 'bg-teal-50 ring-inset ring-2 ring-teal-500/20' : ''}`}
+                      className={`p-3 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 flex justify-between items-center transition-colors ${selectedResultIndex === index ? 'bg-teal-50 ring-inset ring-2 ring-teal-500/20 active-product' : ''}`}
                       onClick={() => addToCart(product)}
                     >
                       <div>
@@ -713,15 +801,25 @@ export const POSScreen: React.FC = () => {
                    <Input 
                      value={customerSearchQuery}
                      onChange={e => setCustomerSearchQuery(e.target.value)}
+                     onKeyDown={handleCustomerKeyDown}
+                     onFocus={() => {
+                        const query = customerSearchQuery.trim()
+                        window.api.customer.list({ page: 1, pageSize: 10, search: query || undefined }).then(results => {
+                          setCustomerSearchResults(results.items)
+                          setSelectedCustomerIndex(-1)
+                        }).catch(console.error)
+                      }}
                      placeholder="Search customer name or phone..."
                      className="bg-white text-sm"
                    />
                    {customerSearchResults.length > 0 && (
-                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
-                       {customerSearchResults.map(c => (
+                     <div ref={customerContainerRef} className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                       {customerSearchResults.map((c, index) => (
                          <div 
                            key={c.id} 
-                           className="px-3 py-2 hover:bg-teal-50 cursor-pointer border-b border-slate-50 text-sm transition-colors"
+                           className={`px-3 py-2 cursor-pointer border-b border-slate-50 text-sm transition-colors ${
+                             index === selectedCustomerIndex ? 'bg-teal-50 font-semibold shadow-sm active-customer' : 'hover:bg-teal-50'
+                           }`}
                            onClick={() => selectCustomer(c)}
                          >
                            <div className="font-bold text-slate-800">{c.name}</div>
