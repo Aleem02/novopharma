@@ -2,10 +2,15 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { StockAdjustment } from '../../../../shared/types'
 import { Input } from '../ui/Input'
+import { useModuleSearchState } from '../../hooks/useModuleSearchState'
 
 export const StockAdjustments: React.FC = () => {
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery
+  } = useModuleSearchState('adjustments')
+
   const [adjustments, setAdjustments] = useState<StockAdjustment[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 

@@ -5,9 +5,33 @@ import logoUrl from '../../assets/logo.png'
 import { UpdateIndicator } from './UpdateIndicator'
 import { TopMenuBar } from './TopMenuBar'
 
+import { ReleaseNotesModal } from '../common/ReleaseNotesModal'
+
 export const MainLayout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false)
+  const [currentVersion, setCurrentVersion] = useState('1.3.0')
+
+  useEffect(() => {
+    const checkVersion = async () => {
+      try {
+        const verObj = await window.api.settings.getVersion().catch(() => ({ version: '1.3.0', build: '' }))
+        const ver = verObj.version || '1.3.0'
+        setCurrentVersion(ver)
+        const lastSeen = localStorage.getItem('novo_last_seen_version')
+        if (!lastSeen || lastSeen !== ver) {
+          setShowReleaseNotes(true)
+        }
+      } catch (e) {}
+    }
+    checkVersion()
+  }, [])
+
+  const handleCloseReleaseNotes = () => {
+    setShowReleaseNotes(false)
+    localStorage.setItem('novo_last_seen_version', currentVersion)
+  }
 
   // Global F1, F2, F8 keyboard shortcuts to redirect to POS Screen
   useEffect(() => {
@@ -175,6 +199,12 @@ export const MainLayout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+
+      <ReleaseNotesModal
+        isOpen={showReleaseNotes}
+        onClose={handleCloseReleaseNotes}
+        initialVersion={currentVersion}
+      />
     </div>
   )
 }

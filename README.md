@@ -59,15 +59,15 @@ src/
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start in development mode |
-| `npm run build` | Typecheck + build (main, preload, renderer) |
-| `npm run build:win` | Build + generate Windows NSIS installer |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run lint` | Run ESLint with auto-fix |
-| `npm run test` | Run Vitest unit tests |
-| `npm run pack` | Build + package (unpacked, for testing) |
+| Command             | Description                                 |
+| ------------------- | ------------------------------------------- |
+| `npm run dev`       | Start in development mode                   |
+| `npm run build`     | Typecheck + build (main, preload, renderer) |
+| `npm run build:win` | Build + generate Windows NSIS installer     |
+| `npm run typecheck` | Run TypeScript type checking                |
+| `npm run lint`      | Run ESLint with auto-fix                    |
+| `npm run test`      | Run Vitest unit tests                       |
+| `npm run pack`      | Build + package (unpacked, for testing)     |
 
 ## Database
 

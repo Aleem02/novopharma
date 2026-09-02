@@ -1,44 +1,58 @@
-import { DatabaseManager } from '../database/connection'
-import { FinancialSummary } from '../../shared/types'
+import { DatabaseManager } from "../database/connection";
+import { FinancialSummary } from "../../shared/types";
 
 export class FinancialService {
-  static getPeriodRange(period: 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'MONTH'): { start: number, end: number } {
-    const now = new Date()
-    const end = now.getTime()
-    
+  static getPeriodRange(
+    period: "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "MONTH",
+  ): { start: number; end: number } {
+    const now = new Date();
+    const end = now.getTime();
+
     // Start of today
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).getTime();
 
     switch (period) {
-      case 'TODAY':
-        return { start: startOfToday, end }
-      case 'YESTERDAY': {
-        const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000
-        return { start: startOfYesterday, end: startOfToday - 1 }
+      case "TODAY":
+        return { start: startOfToday, end };
+      case "YESTERDAY": {
+        const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+        return { start: startOfYesterday, end: startOfToday - 1 };
       }
-      case 'LAST_7_DAYS': {
-        const sevenDaysAgo = startOfToday - 7 * 24 * 60 * 60 * 1000
-        return { start: sevenDaysAgo, end }
+      case "LAST_7_DAYS": {
+        const sevenDaysAgo = startOfToday - 7 * 24 * 60 * 60 * 1000;
+        return { start: sevenDaysAgo, end };
       }
-      case 'MONTH': {
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-        return { start: startOfMonth, end }
+      case "MONTH": {
+        const startOfMonth = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          1,
+        ).getTime();
+        return { start: startOfMonth, end };
       }
       default:
-        return { start: startOfToday, end }
+        return { start: startOfToday, end };
     }
   }
 
-  static getSummary(period: 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'MONTH'): FinancialSummary {
-    const { start, end } = this.getPeriodRange(period)
-    return this.getSummaryByDateRange(start, end)
+  static getSummary(
+    period: "TODAY" | "YESTERDAY" | "LAST_7_DAYS" | "MONTH",
+  ): FinancialSummary {
+    const { start, end } = this.getPeriodRange(period);
+    return this.getSummaryByDateRange(start, end);
   }
 
   static getSummaryByDateRange(start: number, end: number): FinancialSummary {
-    const db = DatabaseManager.getInstance()
+    const db = DatabaseManager.getInstance();
 
     // Completed sales in period
-    const sales = db.prepare(`
+    const sales = db
+      .prepare(
+        `
       SELECT 
         COALESCE(SUM(total_amount), 0) as gross_sales,
         COUNT(id) as invoice_count,
@@ -49,10 +63,14 @@ export class FinancialService {
         COALESCE(SUM(tax_amount), 0) as total_tax
       FROM sales 
       WHERE sale_date >= ? AND sale_date <= ? AND status != 'CANCELLED'
-    `).get(start, end) as any
+    `,
+      )
+      .get(start, end) as any;
 
     // Returns in period
-    const returns = db.prepare(`
+    const returns = db
+      .prepare(
+        `
       SELECT 
         COALESCE(SUM(sri.refund_amount), 0) as refunds,
         COALESCE(SUM(CASE WHEN s.payment_method = 'CASH' THEN sri.refund_amount ELSE 0 END), 0) as cash_refunds,
@@ -63,12 +81,14 @@ export class FinancialService {
       JOIN sales s ON sr.sale_id = s.id
       JOIN sales_return_items sri ON sr.id = sri.sales_return_id
       WHERE sr.return_date >= ? AND sr.return_date <= ?
-    `).get(start, end) as any
+    `,
+      )
+      .get(start, end) as any;
 
-    const grossSales = sales.gross_sales
-    const returnsRefunds = returns.refunds
-    const netSales = grossSales - returnsRefunds
-    const netTax = sales.total_tax - returns.returned_tax
+    const grossSales = sales.gross_sales;
+    const returnsRefunds = returns.refunds;
+    const netSales = grossSales - returnsRefunds;
+    const netTax = sales.total_tax - returns.returned_tax;
 
     return {
       todaySales: grossSales,
@@ -79,7 +99,7 @@ export class FinancialService {
       totalDiscounts: sales.total_discounts,
       totalTax: netTax,
       returnsRefunds: returnsRefunds,
-      netSales: netSales
-    }
+      netSales: netSales,
+    };
   }
 }

@@ -5,12 +5,19 @@ import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { CustomerForm } from './CustomerForm'
 import { useNavigate } from 'react-router-dom'
+import { useModuleSearchState } from '../../hooks/useModuleSearchState'
 
 export const Customers: React.FC = () => {
+  const {
+    query,
+    setQuery,
+    debouncedQuery: debouncedSearch,
+    page,
+    setPage
+  } = useModuleSearchState('customers')
+
   const [customers, setCustomers] = useState<Customer[]>([])
   const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   
@@ -20,7 +27,7 @@ export const Customers: React.FC = () => {
   const loadCustomers = async () => {
     setIsLoading(true)
     try {
-      const result = await window.api.customer.list({ page, pageSize, search: query })
+      const result = await window.api.customer.list({ page, pageSize, search: debouncedSearch })
       setCustomers(result.items)
       setTotal(result.total)
     } catch (err) {
@@ -31,12 +38,8 @@ export const Customers: React.FC = () => {
   }
 
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      setPage(1)
-      loadCustomers()
-    }, 300)
-    return () => clearTimeout(delayDebounce)
-  }, [query])
+    loadCustomers()
+  }, [debouncedSearch, page])
 
   useEffect(() => {
     if (!query) loadCustomers()

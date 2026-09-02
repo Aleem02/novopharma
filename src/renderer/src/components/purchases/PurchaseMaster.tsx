@@ -7,29 +7,28 @@ import { Card } from '../ui/Card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/Table'
 import { Badge } from '../ui/Badge'
 import { EmptyState } from '../ui/EmptyState'
+import { useModuleSearchState } from '../../hooks/useModuleSearchState'
 
 export const PurchaseMaster: React.FC = () => {
+  const {
+    query,
+    setQuery,
+    debouncedQuery,
+    setDebouncedQuery,
+    page,
+    setPage
+  } = useModuleSearchState('purchases')
+
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [suppliers, setSuppliers] = useState<Record<number, string>>({})
-  const [query, setQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
   // Pagination State
-  const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [total, setTotal] = useState(0)
   
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuery(query)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(handler)
-  }, [query])
 
   useEffect(() => {
     fetchData()

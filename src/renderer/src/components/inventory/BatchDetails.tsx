@@ -55,7 +55,7 @@ export const BatchDetails: React.FC = () => {
   if (error || !batch) {
     return (
       <div className="font-sans max-w-4xl mx-auto">
-        <Button variant="ghost" onClick={() => navigate('/inventory')} className="mb-4">
+        <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Inventory
         </Button>
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
@@ -88,7 +88,7 @@ export const BatchDetails: React.FC = () => {
 
   return (
     <div className="font-sans max-w-4xl mx-auto">
-      <Button variant="ghost" onClick={() => navigate('/inventory')} className="mb-4">
+      <Button variant="ghost" onClick={() => navigate(-1)} className="mb-4">
         <ArrowLeft className="h-4 w-4 mr-2" /> Back to Inventory
       </Button>
       

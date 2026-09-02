@@ -1,5 +1,5 @@
-import { Database } from 'better-sqlite3'
-import { Logger } from '../infrastructure/logger'
+import { Database } from "better-sqlite3";
+import { Logger } from "../infrastructure/logger";
 
 /**
  * Executes a callback within an atomic SQLite transaction.
@@ -7,13 +7,15 @@ import { Logger } from '../infrastructure/logger'
  */
 export function executeTransaction<T>(db: Database, callback: () => T): T {
   const transaction = db.transaction(() => {
-    return callback()
-  })
-  
+    return callback();
+  });
+
   try {
-    return transaction()
+    return transaction();
   } catch (error: any) {
-    Logger.error('Database', 'Transaction rolled back due to error', { error: error.message })
-    throw new Error(`Transaction failed: ${error.message}`)
+    Logger.error("Database", "Transaction rolled back due to error", {
+      error: error.message,
+    });
+    throw new Error(`Transaction failed: ${error.message}`);
   }
 }

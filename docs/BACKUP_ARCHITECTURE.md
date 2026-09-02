@@ -1,9 +1,11 @@
 # Backup Architecture
 
 ## Purpose
+
 Ensure customer data is safe against hardware failure, corruption, or theft, completely separate from live production constraints.
 
 ## Flow & Schedule
+
 - **Schedule:** Every 2 hours while the application is running.
 - **Workflow:**
   1. Create a consistent SQLite snapshot.
@@ -17,6 +19,7 @@ Ensure customer data is safe against hardware failure, corruption, or theft, com
   - DO NOT store raw SQLite database backups as fragmented Firestore documents. Use cloud object/file storage for actual files.
 
 ## Supported Operations
+
 - Manual backup.
 - Automatic background backup.
 - Retry mechanisms.

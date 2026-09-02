@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { InventoryBatch, Product } from '../../../../shared/types'
 import { PageHeader } from '../ui/PageHeader'
 import { Button } from '../ui/Button'
@@ -9,8 +9,20 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '.
 import { Badge } from '../ui/Badge'
 import { Search, Plus, Eye, Edit2, ArrowRightLeft } from 'lucide-react'
 
+import { useModuleSearchState } from '../../hooks/useModuleSearchState'
+
 export const InventoryDashboard: React.FC = () => {
   const navigate = useNavigate()
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    debouncedQuery: debouncedSearch,
+    filter,
+    setFilter,
+    page,
+    setPage
+  } = useModuleSearchState('inventory', 'ALL')
+
   const [inventory, setInventory] = useState<InventoryBatch[]>([])
   const [summary, setSummary] = useState<any>(null)
   
@@ -18,26 +30,8 @@ export const InventoryDashboard: React.FC = () => {
   const [error, setError] = useState('')
   
   // Pagination & Filter State
-  const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [total, setTotal] = useState(0)
-  const [filter, setFilter] = useState('ALL') // ALL, LOW_STOCK, EXPIRED, EXPIRING_SOON
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
-
-  // Debounce search query
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(searchQuery)
-      setPage(1) // Reset to page 1 on new search
-    }, 300)
-    return () => clearTimeout(handler)
-  }, [searchQuery])
-
-  // Reset page when filter changes
-  useEffect(() => {
-    setPage(1)
-  }, [filter])
 
   useEffect(() => {
     fetchData()

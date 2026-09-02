@@ -323,6 +323,7 @@ export interface CreateSaleItemPayload {
   is_price_overridden?: boolean
   overridden_price?: number // User entered overridden rate (per actual commercial unit)
   override_reason?: string
+  selected_batch_id?: number
 }
 
 export interface POSCartItem {
@@ -335,6 +336,7 @@ export interface POSCartItem {
   overridden_price?: number
   override_reason?: string
   active_batches?: InventoryBatch[]
+  selected_batch_id?: number
 }
 
 export interface CreateSalePayload {

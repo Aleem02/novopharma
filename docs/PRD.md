@@ -1,10 +1,12 @@
 # NovoPharma V1 - Product Requirements Document (PRD)
 
 ## Product Overview
+
 **Product name:** NovoPharma  
-**Product type:** Windows desktop pharmacy billing and inventory application.  
+**Product type:** Windows desktop pharmacy billing and inventory application.
 
 ## V1 Business Model
+
 - One pharmacy/client
 - One owner user
 - One production Windows PC
@@ -16,7 +18,9 @@
 - No subscription billing
 
 ## V1 Scope (LOCKED)
+
 V1 MUST support:
+
 - Pharmacy onboarding
 - Owner login
 - Pharmacy information
@@ -50,7 +54,9 @@ V1 MUST support:
 - One authorized production installation per client
 
 ## Explicitly Out of V1 Scope
+
 DO NOT implement or architect as required V1 functionality:
+
 - Multi-PC synchronization
 - Real-time multi-device data synchronization
 - Cashier accounts

@@ -7,28 +7,26 @@ import { Badge } from '../ui/Badge'
 import { Input } from '../ui/Input'
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../ui/Table'
 import { useNavigate } from 'react-router-dom'
+import { useModuleSearchState } from '../../hooks/useModuleSearchState'
 
 export const SalesHistory: React.FC = () => {
+  const {
+    query: searchQuery,
+    setQuery: setSearchQuery,
+    debouncedQuery,
+    page,
+    setPage
+  } = useModuleSearchState('sales_history')
+
   const [sales, setSales] = useState<Sale[]>([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   
   // Pagination State
-  const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [total, setTotal] = useState(0)
   
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedQuery(searchQuery)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(handler)
-  }, [searchQuery])
 
   useEffect(() => {
     loadSales()

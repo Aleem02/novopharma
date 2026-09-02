@@ -98,6 +98,7 @@ declare global {
       settings: {
         getAll: () => Promise<Record<string, string>>
         update: (payload: Record<string, string>) => Promise<void>
+        getVersion: () => Promise<{ version: string; build: string }>
       }
       report: {
         sales: (start: number, end: number, page?: number, pageSize?: number) => Promise<import('../../shared/types').PaginatedResult<import('../../shared/types').Sale>>

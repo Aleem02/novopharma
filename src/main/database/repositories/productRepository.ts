@@ -1,10 +1,16 @@
-import { DatabaseManager } from '../connection'
-import { Product, CreateProductPayload, UpdateProductPayload, PaginationOptions, PaginatedResult } from '../../../shared/types'
+import { DatabaseManager } from "../connection";
+import {
+  Product,
+  CreateProductPayload,
+  UpdateProductPayload,
+  PaginationOptions,
+  PaginatedResult,
+} from "../../../shared/types";
 
 export class ProductRepository {
   static create(payload: CreateProductPayload): Product {
-    const db = DatabaseManager.getInstance()
-    
+    const db = DatabaseManager.getInstance();
+
     const stmt = db.prepare(`
       INSERT INTO products (
         name, generic_name, manufacturer, category, therapeutic_category,
@@ -21,9 +27,9 @@ export class ProductRepository {
         ?, ?, ?,
         ?, ?
       )
-    `)
+    `);
 
-    const now = Date.now()
+    const now = Date.now();
     const result = stmt.run(
       payload.name,
       payload.generic_name || null,
@@ -51,140 +57,148 @@ export class ProductRepository {
       payload.tax_rate,
       payload.is_active !== undefined ? payload.is_active : 1,
       now,
-      now
-    )
+      now,
+    );
 
-    return this.findById(result.lastInsertRowid as number) as Product
+    return this.findById(result.lastInsertRowid as number) as Product;
   }
 
   static findById(id: number): Product | undefined {
-    const db = DatabaseManager.getInstance()
-    const stmt = db.prepare(`SELECT * FROM products WHERE id = ?`)
-    const row = stmt.get(id) as Product | undefined
-    return row
+    const db = DatabaseManager.getInstance();
+    const stmt = db.prepare(`SELECT * FROM products WHERE id = ?`);
+    const row = stmt.get(id) as Product | undefined;
+    return row;
   }
 
   static update(id: number, payload: UpdateProductPayload): Product {
-    const db = DatabaseManager.getInstance()
-    
-    const current = this.findById(id)
+    const db = DatabaseManager.getInstance();
+
+    const current = this.findById(id);
     if (!current) {
-      throw new Error(`Product with ID ${id} not found`)
+      throw new Error(`Product with ID ${id} not found`);
     }
 
-    const updates: string[] = []
-    const values: any[] = []
+    const updates: string[] = [];
+    const values: any[] = [];
 
     for (const [key, value] of Object.entries(payload)) {
       if (value !== undefined) {
-        updates.push(`${key} = ?`)
-        values.push(value)
+        updates.push(`${key} = ?`);
+        values.push(value);
       }
     }
 
     if (updates.length === 0) {
-      return current
+      return current;
     }
 
-    updates.push(`updated_at = ?`)
-    values.push(Date.now())
-    values.push(id)
+    updates.push(`updated_at = ?`);
+    values.push(Date.now());
+    values.push(id);
 
-    const sql = `UPDATE products SET ${updates.join(', ')} WHERE id = ?`
-    
-    db.prepare(sql).run(...values)
-    
-    return this.findById(id) as Product
+    const sql = `UPDATE products SET ${updates.join(", ")} WHERE id = ?`;
+
+    db.prepare(sql).run(...values);
+
+    return this.findById(id) as Product;
   }
 
-  static getPaginatedProducts(options: PaginationOptions): PaginatedResult<Product> {
-    const db = DatabaseManager.getInstance()
-    let baseQuery = `FROM products WHERE 1=1`
-    const params: any[] = []
+  static getPaginatedProducts(
+    options: PaginationOptions,
+  ): PaginatedResult<Product> {
+    const db = DatabaseManager.getInstance();
+    let baseQuery = `FROM products WHERE 1=1`;
+    const params: any[] = [];
 
     if (options.search) {
-      baseQuery += ` AND (name LIKE ? OR generic_name LIKE ? OR barcode = ?)`
-      const searchParam = `%${options.search}%`
-      params.push(searchParam, searchParam, options.search)
+      baseQuery += ` AND (name LIKE ? OR generic_name LIKE ? OR barcode = ?)`;
+      const searchParam = `%${options.search}%`;
+      params.push(searchParam, searchParam, options.search);
     }
 
     if (options.filter) {
-      if (options.filter === 'ACTIVE') {
-        baseQuery += ` AND is_active = 1`
-      } else if (options.filter === 'INACTIVE') {
-        baseQuery += ` AND is_active = 0`
-      } else if (options.filter === 'PRESCRIPTION') {
-        baseQuery += ` AND prescription_required = 1`
+      if (options.filter === "ACTIVE") {
+        baseQuery += ` AND is_active = 1`;
+      } else if (options.filter === "INACTIVE") {
+        baseQuery += ` AND is_active = 0`;
+      } else if (options.filter === "PRESCRIPTION") {
+        baseQuery += ` AND prescription_required = 1`;
       }
     }
 
-    const countQuery = `SELECT COUNT(id) as total ${baseQuery}`
-    const totalRow = db.prepare(countQuery).get(...params) as { total: number }
-    const total = totalRow.total
+    const countQuery = `SELECT COUNT(id) as total ${baseQuery}`;
+    const totalRow = db.prepare(countQuery).get(...params) as { total: number };
+    const total = totalRow.total;
 
-    let orderBy = 'ORDER BY name ASC'
+    let orderBy = "ORDER BY name ASC";
     if (options.sortBy) {
-      const dir = options.sortDirection === 'DESC' ? 'DESC' : 'ASC'
-      orderBy = `ORDER BY ${options.sortBy} ${dir}` // Be careful of SQL injection, whitelist sortBy at IPC layer
+      const dir = options.sortDirection === "DESC" ? "DESC" : "ASC";
+      orderBy = `ORDER BY ${options.sortBy} ${dir}`; // Be careful of SQL injection, whitelist sortBy at IPC layer
     }
 
-    const page = options.page || 1
-    const pageSize = options.pageSize || 25
-    const offset = (page - 1) * pageSize
+    const page = options.page || 1;
+    const pageSize = options.pageSize || 25;
+    const offset = (page - 1) * pageSize;
 
-    const dataQuery = `SELECT * ${baseQuery} ${orderBy} LIMIT ? OFFSET ?`
-    const items = db.prepare(dataQuery).all(...params, pageSize, offset) as Product[]
+    const dataQuery = `SELECT * ${baseQuery} ${orderBy} LIMIT ? OFFSET ?`;
+    const items = db
+      .prepare(dataQuery)
+      .all(...params, pageSize, offset) as Product[];
 
     return {
       items,
       total,
       page,
       pageSize,
-      totalPages: Math.ceil(total / pageSize)
-    }
+      totalPages: Math.ceil(total / pageSize),
+    };
   }
 
   static list(): Product[] {
-    const db = DatabaseManager.getInstance()
-    const stmt = db.prepare(`SELECT * FROM products ORDER BY name ASC`)
-    return stmt.all() as Product[]
+    const db = DatabaseManager.getInstance();
+    const stmt = db.prepare(`SELECT * FROM products ORDER BY name ASC`);
+    return stmt.all() as Product[];
   }
 
   static search(query: string): Product[] {
-    const db = DatabaseManager.getInstance()
-    
-    const cleanQuery = query.trim()
-    if (!cleanQuery) return []
+    const db = DatabaseManager.getInstance();
+
+    const cleanQuery = query.trim();
+    if (!cleanQuery) return [];
 
     // 1. Exact barcode lookup first
-    const exactBarcodeStmt = db.prepare(`SELECT * FROM products WHERE barcode = ?`)
-    const exactMatch = exactBarcodeStmt.get(cleanQuery) as Product | undefined
+    const exactBarcodeStmt = db.prepare(
+      `SELECT * FROM products WHERE barcode = ?`,
+    );
+    const exactMatch = exactBarcodeStmt.get(cleanQuery) as Product | undefined;
     if (exactMatch) {
-      return [exactMatch]
+      return [exactMatch];
     }
 
     // Clean and split query into words
-    const words = cleanQuery.split(/\s+/).filter(w => w.length > 0)
-    if (words.length === 0) return []
+    const words = cleanQuery.split(/\s+/).filter((w) => w.length > 0);
+    if (words.length === 0) return [];
 
     // Exact string matching variables for priority sort
-    const exactStart = `${cleanQuery}%`
-    const exactBoundary = `% ${cleanQuery}%`
+    const exactStart = `${cleanQuery}%`;
+    const exactBoundary = `% ${cleanQuery}%`;
 
     // Build word-by-word conditions
-    const nameConditions = words.map(() => `name LIKE ?`).join(' AND ')
-    const genericNameConditions = words.map(() => `generic_name LIKE ?`).join(' AND ')
-    
+    const nameConditions = words.map(() => `name LIKE ?`).join(" AND ");
+    const genericNameConditions = words
+      .map(() => `generic_name LIKE ?`)
+      .join(" AND ");
+
     // Generate word bindings for LIKE statements
-    const wordBindings = words.map(w => `%${w}%`)
-    
+    const wordBindings = words.map((w) => `%${w}%`);
+
     const bindings = [
       ...wordBindings, // For name
       ...wordBindings, // For generic_name
-      cleanQuery,      // For barcode fallback
+      cleanQuery, // For barcode fallback
       exactStart,
-      exactBoundary
-    ]
+      exactBoundary,
+    ];
 
     const stmt = db.prepare(`
       SELECT * FROM products 
@@ -199,11 +213,11 @@ export class ProductRepository {
         END ASC,
         name ASC
       LIMIT 50
-    `)
-    return stmt.all(...bindings) as Product[]
+    `);
+    return stmt.all(...bindings) as Product[];
   }
 
   static setActive(id: number, active: boolean): Product {
-    return this.update(id, { is_active: active ? 1 : 0 })
+    return this.update(id, { is_active: active ? 1 : 0 });
   }
 }
