@@ -658,43 +658,127 @@ export function setupIpcHandlers() {
     async (event: IpcMainInvokeEvent, options: any = {}) => {
       await enforceSecureIpc(event);
 
-      const safeOptions: any = {
-        page:
-          typeof options?.page === "number" && options.page > 0
-            ? options.page
-            : 1,
-        pageSize:
-          typeof options?.pageSize === "number" && options.pageSize > 0
-            ? options.pageSize
-            : 25,
-      };
+      const safeOptions: any = {};
 
-      if (
-        typeof options?.search === "string" &&
-        options.search.trim().length > 0
-      ) {
+      if (typeof options?.search === "string" && options.search.trim().length > 0) {
         safeOptions.search = options.search.trim();
       }
 
-      if (
-        typeof options?.filter === "string" &&
-        ["ALL", "COMPLETED", "RETURNED", "CANCELLED", "HELD"].includes(
-          options.filter,
-        )
-      ) {
-        safeOptions.filter = options.filter;
+      if (typeof options?.dateFrom === "number" && options.dateFrom > 0) {
+        safeOptions.dateFrom = options.dateFrom;
       }
+
+      if (typeof options?.dateTo === "number" && options.dateTo > 0) {
+        safeOptions.dateTo = options.dateTo;
+      }
+
+      const statusVal = options?.status || options?.filter;
+      if (typeof statusVal === "string" && statusVal.length > 0) {
+        safeOptions.status = statusVal;
+      }
+
+      if (typeof options?.paymentMethod === "string" && options.paymentMethod.length > 0) {
+        safeOptions.paymentMethod = options.paymentMethod;
+      }
+
+      if (options?.customerId === "WALK_IN" || (typeof options?.customerId === "number" && options.customerId > 0)) {
+        safeOptions.customerId = options.customerId;
+      }
+
+      if (typeof options?.minAmount === "number" && options.minAmount >= 0) {
+        safeOptions.minAmount = options.minAmount;
+      }
+
+      if (typeof options?.maxAmount === "number" && options.maxAmount >= 0) {
+        safeOptions.maxAmount = options.maxAmount;
+      }
+
+      safeOptions.page = typeof options?.page === "number" && options.page > 0 ? options.page : 1;
+      safeOptions.pageSize = typeof options?.pageSize === "number" && options.pageSize > 0 ? options.pageSize : 25;
 
       if (
         typeof options?.sortBy === "string" &&
-        ["invoice_number", "sale_date", "total_amount"].includes(options.sortBy)
+        ["invoice_number", "sale_date", "total_amount", "customer_name", "invoice", "date", "amount", "customer"].includes(
+          options.sortBy,
+        )
       ) {
         safeOptions.sortBy = options.sortBy;
-        safeOptions.sortDirection =
-          options?.sortDirection === "DESC" ? "DESC" : "ASC";
+        safeOptions.sortDirection = options?.sortDirection === "ASC" ? "ASC" : "DESC";
       }
 
       return SaleService.getPaginatedSales(safeOptions);
+    },
+  );
+
+  ipcMain.handle(
+    "api:sale:kpis",
+    async (event: IpcMainInvokeEvent, options: any = {}) => {
+      await enforceSecureIpc(event);
+
+      const safeOptions: any = {};
+      if (typeof options?.search === "string" && options.search.trim().length > 0) {
+        safeOptions.search = options.search.trim();
+      }
+      if (typeof options?.dateFrom === "number" && options.dateFrom > 0) {
+        safeOptions.dateFrom = options.dateFrom;
+      }
+      if (typeof options?.dateTo === "number" && options.dateTo > 0) {
+        safeOptions.dateTo = options.dateTo;
+      }
+      const statusVal = options?.status || options?.filter;
+      if (typeof statusVal === "string" && statusVal.length > 0) {
+        safeOptions.status = statusVal;
+      }
+      if (typeof options?.paymentMethod === "string" && options.paymentMethod.length > 0) {
+        safeOptions.paymentMethod = options.paymentMethod;
+      }
+      if (options?.customerId === "WALK_IN" || (typeof options?.customerId === "number" && options.customerId > 0)) {
+        safeOptions.customerId = options.customerId;
+      }
+      if (typeof options?.minAmount === "number" && options.minAmount >= 0) {
+        safeOptions.minAmount = options.minAmount;
+      }
+      if (typeof options?.maxAmount === "number" && options.maxAmount >= 0) {
+        safeOptions.maxAmount = options.maxAmount;
+      }
+
+      return SaleService.getSalesKpis(safeOptions);
+    },
+  );
+
+  ipcMain.handle(
+    "api:sale:export",
+    async (event: IpcMainInvokeEvent, options: any = {}) => {
+      await enforceSecureIpc(event);
+
+      const safeOptions: any = {};
+      if (typeof options?.search === "string" && options.search.trim().length > 0) {
+        safeOptions.search = options.search.trim();
+      }
+      if (typeof options?.dateFrom === "number" && options.dateFrom > 0) {
+        safeOptions.dateFrom = options.dateFrom;
+      }
+      if (typeof options?.dateTo === "number" && options.dateTo > 0) {
+        safeOptions.dateTo = options.dateTo;
+      }
+      const statusVal = options?.status || options?.filter;
+      if (typeof statusVal === "string" && statusVal.length > 0) {
+        safeOptions.status = statusVal;
+      }
+      if (typeof options?.paymentMethod === "string" && options.paymentMethod.length > 0) {
+        safeOptions.paymentMethod = options.paymentMethod;
+      }
+      if (options?.customerId === "WALK_IN" || (typeof options?.customerId === "number" && options.customerId > 0)) {
+        safeOptions.customerId = options.customerId;
+      }
+      if (typeof options?.minAmount === "number" && options.minAmount >= 0) {
+        safeOptions.minAmount = options.minAmount;
+      }
+      if (typeof options?.maxAmount === "number" && options.maxAmount >= 0) {
+        safeOptions.maxAmount = options.maxAmount;
+      }
+
+      return SaleService.getExportSales(safeOptions);
     },
   );
 
@@ -787,6 +871,44 @@ export function setupIpcHandlers() {
     async (event: IpcMainInvokeEvent) => {
       await enforceSecureIpc(event);
       return DashboardService.getSummary();
+    },
+  );
+
+  ipcMain.handle(
+    "api:dashboard:salesTrend",
+    async (event: IpcMainInvokeEvent, payload: unknown) => {
+      await enforceSecureIpc(event);
+      if (
+        typeof payload !== "object" ||
+        payload === null ||
+        typeof (payload as any).startDate !== "number" ||
+        typeof (payload as any).endDate !== "number"
+      ) {
+        throw new Error("Invalid date range parameters");
+      }
+      const { startDate, endDate } = payload as { startDate: number; endDate: number };
+      return DashboardService.getSalesTrend(startDate, endDate);
+    },
+  );
+
+  ipcMain.handle(
+    "api:dashboard:topSelling",
+    async (event: IpcMainInvokeEvent, payload: unknown) => {
+      await enforceSecureIpc(event);
+      if (
+        typeof payload !== "object" ||
+        payload === null ||
+        typeof (payload as any).startDate !== "number" ||
+        typeof (payload as any).endDate !== "number"
+      ) {
+        throw new Error("Invalid date range parameters");
+      }
+      const { startDate, endDate, limit } = payload as {
+        startDate: number;
+        endDate: number;
+        limit?: number;
+      };
+      return DashboardService.getTopSellingProducts(startDate, endDate, limit);
     },
   );
 

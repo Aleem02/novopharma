@@ -8,6 +8,9 @@ import {
   ApiError,
   InventoryBatch,
   PaginationOptions,
+  SalesFilterOptions,
+  SalesPaginationOptions,
+  SalesKpis,
   PaginatedResult,
 } from "../../shared/types";
 import { executeTransaction } from "../database/transactions";
@@ -520,8 +523,16 @@ export class SaleService {
     return sale;
   }
 
-  static getPaginatedSales(options: PaginationOptions): PaginatedResult<Sale> {
+  static getPaginatedSales(options: SalesPaginationOptions): PaginatedResult<Sale> {
     return SaleRepository.getPaginatedSales(options);
+  }
+
+  static getSalesKpis(options: SalesFilterOptions = {}): SalesKpis {
+    return SaleRepository.getSalesKpis(options);
+  }
+
+  static getExportSales(options: SalesFilterOptions = {}): Sale[] {
+    return SaleRepository.getExportSales(options);
   }
 
   static listSales(): Sale[] {

@@ -188,6 +188,9 @@ export class ProductRepository {
     const genericNameConditions = words
       .map(() => `generic_name LIKE ?`)
       .join(" AND ");
+    const strengthConditions = words
+      .map(() => `strength LIKE ?`)
+      .join(" AND ");
 
     // Generate word bindings for LIKE statements
     const wordBindings = words.map((w) => `%${w}%`);
@@ -195,6 +198,7 @@ export class ProductRepository {
     const bindings = [
       ...wordBindings, // For name
       ...wordBindings, // For generic_name
+      ...wordBindings, // For strength
       cleanQuery, // For barcode fallback
       exactStart,
       exactBoundary,
@@ -204,6 +208,7 @@ export class ProductRepository {
       SELECT * FROM products 
       WHERE (${nameConditions})
          OR (${genericNameConditions})
+         OR (${strengthConditions})
          OR barcode = ?
       ORDER BY 
         CASE 

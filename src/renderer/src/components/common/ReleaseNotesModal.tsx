@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { RELEASE_NOTES, ReleaseNote } from '../../config/releaseNotes'
 import { Sparkles, CheckCircle2, X, ChevronRight, Tag } from 'lucide-react'
 
@@ -11,9 +11,15 @@ interface ReleaseNotesModalProps {
 export const ReleaseNotesModal: React.FC<ReleaseNotesModalProps> = ({
   isOpen,
   onClose,
-  initialVersion = '1.3.0'
+  initialVersion = RELEASE_NOTES[0]?.version || '1.4.0'
 }) => {
   const [selectedVersion, setSelectedVersion] = useState<string>(initialVersion)
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedVersion(initialVersion || RELEASE_NOTES[0]?.version || '1.4.0')
+    }
+  }, [isOpen, initialVersion])
 
   if (!isOpen) return null
 

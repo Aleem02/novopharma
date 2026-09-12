@@ -105,6 +105,8 @@ const api = {
   },
   sale: {
     list: (options?: any) => secureInvoke("api:sale:list", options),
+    kpis: (options?: any) => secureInvoke("api:sale:kpis", options),
+    export: (options?: any) => secureInvoke("api:sale:export", options),
     get: (id: number) => secureInvoke("api:sale:get", id),
     create: (payload: any) => secureInvoke("api:sale:create", payload),
   },
@@ -126,6 +128,10 @@ const api = {
   },
   dashboard: {
     getSummary: () => secureInvoke("api:dashboard:getSummary"),
+    getSalesTrend: (startDate: number, endDate: number) =>
+      secureInvoke("api:dashboard:salesTrend", { startDate, endDate }),
+    getTopSellingProducts: (startDate: number, endDate: number, limit?: number) =>
+      secureInvoke("api:dashboard:topSelling", { startDate, endDate, limit }),
   },
   financial: {
     getSummary: (period: string) =>

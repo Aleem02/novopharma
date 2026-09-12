@@ -29,7 +29,7 @@ export const StockAdjustmentForm: React.FC = () => {
       setLoading(true)
       const [invData, prodData] = await Promise.all([
         window.api.inventory.list(),
-        window.api.product.list()
+        window.api.product.list({ pageSize: 1000 })
       ])
       setBatches(invData.items)
       const prodMap: Record<number, Product> = {}

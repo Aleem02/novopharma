@@ -8,6 +8,36 @@ export interface PaginationOptions {
   filter?: string;
 }
 
+export interface SalesFilterOptions {
+  search?: string;
+  dateFrom?: number;
+  dateTo?: number;
+  status?: SaleStatus | 'ALL';
+  paymentMethod?: PaymentMethod | 'ALL';
+  customerId?: number | 'WALK_IN';
+  minAmount?: number;
+  maxAmount?: number;
+}
+
+export interface SalesPaginationOptions extends SalesFilterOptions {
+  page: number;
+  pageSize: number;
+  sortBy?: 'invoice_number' | 'sale_date' | 'total_amount' | 'customer_name';
+  sortDirection?: 'ASC' | 'DESC';
+}
+
+export interface SalesKpis {
+  salesAmount: number;
+  salesChangePercent?: number;
+  totalTransactionsCount: number;
+  completedTransactionsCount: number;
+  refundedTransactionsCount: number;
+  averageBillAmount: number;
+  totalRefundsAmount: number;
+  totalRefundsCount: number;
+  totalItemsSold: number;
+}
+
 export interface PaginatedResult<T> {
   items: T[];
   total: number;
@@ -306,6 +336,8 @@ export interface Sale {
   updated_at: number
   customer_id?: number | null
   prescription_id?: number | null
+  items_count?: number
+  items_total_quantity?: number
   
   // Optional relation
   items?: SaleItem[]
@@ -468,11 +500,24 @@ export interface DashboardSummary {
   totalProducts: number
   lowStockCount: number
   expiringSoonCount: number
+  expiredCount: number
   todayReturnsCount: number
   recentSales: Sale[]
   recentPurchases: Purchase[]
   recentReturns: SalesReturn[]
   recentAdjustments: StockAdjustment[]
+}
+
+export interface SalesTrendItem {
+  date: string
+  amount: number
+}
+
+export interface TopSellingProduct {
+  productId: number
+  productName: string
+  quantitySold: number
+  salesAmount: number
 }
 
 // Customers & Prescriptions

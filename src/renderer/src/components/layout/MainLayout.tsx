@@ -6,27 +6,31 @@ import { UpdateIndicator } from './UpdateIndicator'
 import { TopMenuBar } from './TopMenuBar'
 
 import { ReleaseNotesModal } from '../common/ReleaseNotesModal'
+import { RELEASE_NOTES } from '../../config/releaseNotes'
 
 export const MainLayout: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [showReleaseNotes, setShowReleaseNotes] = useState(false)
-  const [currentVersion, setCurrentVersion] = useState('1.3.0')
+  const defaultVersion = RELEASE_NOTES[0]?.version || '1.4.0'
+  const [currentVersion, setCurrentVersion] = useState(defaultVersion)
 
   useEffect(() => {
     const checkVersion = async () => {
       try {
-        const verObj = await window.api.settings.getVersion().catch(() => ({ version: '1.3.0', build: '' }))
-        const ver = verObj.version || '1.3.0'
+        const verObj = await window.api.settings.getVersion().catch(() => ({ version: defaultVersion, build: '' }))
+        const ver = verObj.version || defaultVersion
         setCurrentVersion(ver)
         const lastSeen = localStorage.getItem('novo_last_seen_version')
         if (!lastSeen || lastSeen !== ver) {
           setShowReleaseNotes(true)
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Failed to check version for release notes', e)
+      }
     }
     checkVersion()
-  }, [])
+  }, [defaultVersion])
 
   const handleCloseReleaseNotes = () => {
     setShowReleaseNotes(false)

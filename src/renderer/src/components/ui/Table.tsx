@@ -26,14 +26,14 @@ export const TableRow: React.FC<{ children: React.ReactNode, className?: string,
   </tr>
 )
 
-export const TableHead: React.FC<{ children?: React.ReactNode, className?: string, colSpan?: number }> = ({ children, className = '', colSpan }) => (
-  <th colSpan={colSpan} className={`px-3 py-2 text-left text-xs font-semibold text-slate-600 border-r border-slate-200 last:border-r-0 ${className}`}>
+export const TableHead: React.FC<{ children?: React.ReactNode, className?: string, colSpan?: number, onClick?: (e: React.MouseEvent) => void }> = ({ children, className = '', colSpan, onClick }) => (
+  <th colSpan={colSpan} onClick={onClick} className={`px-3 py-2 text-left text-xs font-semibold text-slate-600 border-r border-slate-200 last:border-r-0 ${className}`}>
     {children}
   </th>
 )
 
-export const TableCell: React.FC<{ children?: React.ReactNode, className?: string, colSpan?: number }> = ({ children, className = '', colSpan }) => (
-  <td colSpan={colSpan} className={`px-3 py-1.5 whitespace-nowrap text-[13px] text-slate-700 border-r border-slate-100 last:border-r-0 ${className}`}>
+export const TableCell: React.FC<{ children?: React.ReactNode, className?: string, colSpan?: number, onClick?: (e: React.MouseEvent) => void }> = ({ children, className = '', colSpan, onClick }) => (
+  <td colSpan={colSpan} onClick={onClick} className={`px-3 py-1.5 whitespace-nowrap text-[13px] text-slate-700 border-r border-slate-100 last:border-r-0 ${className}`}>
     {children}
   </td>
 )

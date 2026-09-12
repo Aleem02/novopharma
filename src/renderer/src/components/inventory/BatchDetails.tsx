@@ -28,7 +28,7 @@ export const BatchDetails: React.FC = () => {
       const b = await window.api.inventory.getBatchById(Number(id))
       if (!b) throw new Error('Batch not found')
       setBatch(b)
-      const p = await window.api.product.list()
+      const p = await window.api.product.list({ pageSize: 1000 })
       const foundProduct = p.items.find(prod => prod.id === b.product_id)
       if (foundProduct) {
         setProduct(foundProduct)

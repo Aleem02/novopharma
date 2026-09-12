@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { CreateCustomerPayload, UpdateCustomerPayload, Customer } from '../../../../shared/types'
 import { Input } from '../ui/Input'
 import { Button } from '../ui/Button'
+import { DatePicker } from '../ui/DatePicker'
 
 interface CustomerFormProps {
   initialData?: Customer
@@ -84,12 +85,10 @@ export const CustomerForm: React.FC<CustomerFormProps> = ({ initialData, onSucce
           onChange={handleChange}
           placeholder="e.g. john@example.com"
         />
-        <Input
+        <DatePicker
           label="Date of Birth (Optional)"
-          name="date_of_birth"
-          type="date"
           value={formData.date_of_birth || ''}
-          onChange={handleChange} placeholder="Enter date of  birth ( optional)..."
+          onChange={val => setFormData(prev => ({ ...prev, date_of_birth: val }))}
         />
       </div>
 

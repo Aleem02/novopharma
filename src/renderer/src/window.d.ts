@@ -60,6 +60,8 @@ declare global {
       }
       sale: {
         list: (options?: any) => Promise<import('../../shared/types').PaginatedResult<import('../../shared/types').Sale>>
+        kpis: (options?: any) => Promise<import('../../shared/types').SalesKpis>
+        export: (options?: any) => Promise<import('../../shared/types').Sale[]>
         get: (id: number) => Promise<import('../../shared/types').Sale>
         create: (payload: import('../../shared/types').CreateSalePayload) => Promise<import('../../shared/types').Sale>
       }
@@ -79,6 +81,8 @@ declare global {
       }
       dashboard: {
         getSummary: () => Promise<import('../../shared/types').DashboardSummary>
+        getSalesTrend: (startDate: number, endDate: number) => Promise<import('../../shared/types').SalesTrendItem[]>
+        getTopSellingProducts: (startDate: number, endDate: number, limit?: number) => Promise<import('../../shared/types').TopSellingProduct[]>
       }
       financial: {
         getSummary: (period: 'TODAY' | 'YESTERDAY' | 'LAST_7_DAYS' | 'MONTH') => Promise<import('../../shared/types').FinancialSummary>

@@ -13,6 +13,46 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.4.0',
+    date: 'September 12, 2026',
+    title: 'Global Date Selection Standard, Pharmacy Expiry MM/YYYY UX & Reports Center',
+    highlights: [
+      'Reusable NovoPharma DatePicker standard with DD-MM-YYYY format and 8-digit fast keyboard entry.',
+      'Specialized Month/Year (MM/YYYY) picker for medicine batch expiry with 6-digit fast typing and month-grid selector.',
+      'Canonical end-of-month expiry validity (MM/YYYY valid through last day of month) with backward-compatible timestamp preservation.',
+      'High-risk Expired Batches alert section on Dashboard and accurate usable stock calculation.',
+      'UI popover stacking fixes allowing date pickers and dropdowns to float smoothly outside card boundaries.'
+    ],
+    sections: [
+      {
+        category: 'New Features',
+        items: [
+          'Global DatePicker Standard (DD-MM-YYYY): Reused across Purchase Form, Reports Custom Date Ranges, Sales History Filters, and Customer DOB with fast 8-digit keyboard input (12092026 -> 12-09-2026), calendar popover, and Today shortcut.',
+          'Pharmacy Expiry Month/Year UX (MM/YYYY): Replaced day-based expiry selection with dedicated MonthYearPicker for batch entry in Purchases and Inventory Batch editing.',
+          '6-Digit Expiry Keyboard Workflow: Fast typing support (112027 -> 11/2027) with seamless Tab key navigation to Qty and Price fields.',
+          '3x4 Month Selector Popover: Dedicated month grid with year navigation stepper (Jan-Dec grid) eliminating day selection for medicine expiry.'
+        ]
+      },
+      {
+        category: 'Improvements',
+        items: [
+          'Canonical Month-End Expiry Boundary: Newly entered MM/YYYY expiry dates normalize to the last millisecond of the month (e.g. 11/2027 -> Nov 30, 2027 23:59:59.999), remaining valid through the end of the month.',
+          'Backward-Compatible Batch Editing: Editing unrelated fields (e.g. MRP or Selling Price) preserves exact existing batch expiry timestamps without silent modification.',
+          'Dashboard High-Risk Expired Batches Alert: Immediate visibility for expired inventory in Attention Required section.',
+          'Usable Stock Calculation: Low Stock calculations explicitly filter out expired inventory to prevent artificial stock inflation.',
+          'Reports & Analytics Redesign: Polished visual center with category metrics, KPI summaries, and document preview modals.'
+        ]
+      },
+      {
+        category: 'Bug Fixes',
+        items: [
+          'Card Popover Clipping: Removed overflow-hidden constraints from Card components so date pickers and dropdown menus float cleanly over card borders.',
+          'Popover Stacking Order: Applied dynamic z-40 stacking order to active date and month/year pickers so popovers render on top of adjacent form controls.'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.3.0',
     date: 'September 2, 2026',
     title: 'FEFO Prescription Auto-Batch & Universal Search State Persistence',

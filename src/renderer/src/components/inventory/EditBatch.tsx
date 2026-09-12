@@ -6,6 +6,8 @@ import { Card, CardHeader, CardContent } from '../ui/Card'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { MonthYearPicker } from '../ui/MonthYearPicker'
+import { formatMonthYear, parseMonthYearEndMs } from '../../../../shared/utils/dateUtils'
 
 export const EditBatch: React.FC = () => {
   const { id } = useParams<{ id: string }>()
@@ -36,14 +38,14 @@ export const EditBatch: React.FC = () => {
       if (!b) throw new Error('Batch not found')
       setBatch(b)
       
-      const p = await window.api.product.list()
+      const p = await window.api.product.list({ pageSize: 1000 })
       const foundProduct = p.items.find(prod => prod.id === b.product_id)
       if (foundProduct) {
         setProduct(foundProduct)
       }
 
       setFormData({
-        expiry_date: new Date(b.expiry_date).toISOString().split('T')[0],
+        expiry_date: formatMonthYear(b.expiry_date),
         mrp: (b.mrp / 100).toFixed(2),
         selling_price: ((b.selling_price || b.mrp) / 100).toFixed(2)
       })
@@ -62,8 +64,12 @@ export const EditBatch: React.FC = () => {
     setError('')
 
     try {
-      const expiry_date = new Date(formData.expiry_date).getTime()
-      if (isNaN(expiry_date)) throw new Error('Invalid expiry date')
+      const isExpiryUnchanged = formatMonthYear(batch.expiry_date) === formData.expiry_date
+      const expiry_date = isExpiryUnchanged
+        ? batch.expiry_date
+        : parseMonthYearEndMs(formData.expiry_date)
+
+      if (!expiry_date) throw new Error('Invalid expiry month/year. Use MM/YYYY format.')
 
       const mrp = Math.round(parseFloat(formData.mrp) * 100)
       const selling_price = Math.round(parseFloat(formData.selling_price) * 100)
@@ -149,12 +155,12 @@ export const EditBatch: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Expiry Date</label>
-              <Input
-                type="date"
+              <MonthYearPicker
+                label="Expiry Date"
                 required
                 value={formData.expiry_date}
-                onChange={e => setFormData({ ...formData, expiry_date: e.target.value })} placeholder="Enter value..."
+                onChange={val => setFormData({ ...formData, expiry_date: val })}
+                placeholder="MM/YYYY"
               />
             </div>
 

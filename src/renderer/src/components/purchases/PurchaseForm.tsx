@@ -7,6 +7,9 @@ import { Input } from '../ui/Input'
 import { Card, CardContent, CardHeader } from '../ui/Card'
 import { Badge } from '../ui/Badge'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../ui/Table'
+import { DatePicker } from '../ui/DatePicker'
+import { MonthYearPicker } from '../ui/MonthYearPicker'
+import { formatMonthYear, parseMonthYearEndMs } from '../../../../shared/utils/dateUtils'
 
 export const PurchaseForm: React.FC = () => {
   const navigate = useNavigate()
@@ -18,6 +21,15 @@ export const PurchaseForm: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [products, setProducts] = useState<Product[]>([])
   
+  // Searchable product combobox state
+  const [productSearchQuery, setProductSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<Product[]>([])
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [selectedResultIndex, setSelectedResultIndex] = useState(-1)
+  const [isSearching, setIsSearching] = useState(false)
+  const productContainerRef = React.useRef<HTMLDivElement>(null)
+  const searchRequestIdRef = React.useRef(0)
+
   const [purchaseData, setPurchaseData] = useState({
     supplier_id: '',
     invoice_number: '',
@@ -54,12 +66,121 @@ export const PurchaseForm: React.FC = () => {
     try {
       const [supps, prods] = await Promise.all([
         window.api.supplier.list(),
-        window.api.product.list()
+        window.api.product.list({ pageSize: 500 })
       ])
       setSuppliers(supps.items.filter(s => s.is_active))
       setProducts(prods.items.filter(p => p.is_active))
     } catch (err) {
       console.error('Failed to load dependencies', err)
+    }
+  }
+
+  // Product Search Debounce with Race-Condition Protection
+  useEffect(() => {
+    const query = productSearchQuery.trim()
+    if (!query) {
+      setSearchResults([])
+      setIsSearching(false)
+      setSelectedResultIndex(-1)
+      return
+    }
+
+    const currentRequestId = ++searchRequestIdRef.current
+    setIsSearching(true)
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await window.api.product.search(query)
+        if (currentRequestId === searchRequestIdRef.current) {
+          setSearchResults(results.filter(p => p.is_active))
+          setSelectedResultIndex(-1)
+          setIsSearching(false)
+        }
+      } catch (err) {
+        if (currentRequestId === searchRequestIdRef.current) {
+          console.error('Failed to search products', err)
+          setSearchResults([])
+          setSelectedResultIndex(-1)
+          setIsSearching(false)
+        }
+      }
+    }, 250)
+
+    return () => clearTimeout(timer)
+  }, [productSearchQuery])
+
+  // Click outside listener for product dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        productContainerRef.current &&
+        !productContainerRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Auto-scroll highlighted product option into view
+  useEffect(() => {
+    if (selectedResultIndex >= 0 && productContainerRef.current) {
+      const activeElement = productContainerRef.current.querySelector('.active-product-option')
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [selectedResultIndex])
+
+  const displayedProducts = productSearchQuery.trim() ? searchResults : products
+  const selectedProduct = products.find(p => p.id.toString() === currentItem.product_id)
+
+  const handleSelectProduct = (product: Product) => {
+    setCurrentItem(prev => ({
+      ...prev,
+      product_id: product.id.toString()
+    }))
+    setProductSearchQuery('')
+    setIsDropdownOpen(false)
+    setSelectedResultIndex(-1)
+
+    setProducts(prev => {
+      if (!prev.some(p => p.id === product.id)) {
+        return [...prev, product]
+      }
+      return prev
+    })
+  }
+
+  const handleProductKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isDropdownOpen) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        setIsDropdownOpen(true)
+        e.preventDefault()
+      }
+      return
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (displayedProducts.length > 0) {
+        setSelectedResultIndex(prev => (prev < displayedProducts.length - 1 ? prev + 1 : prev))
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      if (displayedProducts.length > 0) {
+        setSelectedResultIndex(prev => (prev > 0 ? prev - 1 : 0))
+      }
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (selectedResultIndex >= 0 && selectedResultIndex < displayedProducts.length) {
+        handleSelectProduct(displayedProducts[selectedResultIndex])
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setIsDropdownOpen(false)
+      setSelectedResultIndex(-1)
     }
   }
 
@@ -82,7 +203,7 @@ export const PurchaseForm: React.FC = () => {
             quantity: item.quantity.toString(),
             purchase_price: (item.purchase_price / 100).toString(),
             mrp: (item.mrp / 100).toString(),
-            expiry_date: new Date(item.expiry_date).toISOString().slice(0, 7) // YYYY-MM
+            expiry_date: formatMonthYear(item.expiry_date)
           }))
           setItems(loadedItems)
         }
@@ -125,8 +246,11 @@ export const PurchaseForm: React.FC = () => {
       return
     }
 
-    // Convert YYYY-MM to timestamp (last day of month is standard, but we'll just use the 1st of the month for simplicity or precise YYYY-MM-01)
-    const expiryDate = new Date(`${currentItem.expiry_date}-01T00:00:00Z`).getTime()
+    const expiryDate = parseMonthYearEndMs(currentItem.expiry_date)
+    if (!expiryDate) {
+      setError('Please enter a valid expiry month and year (MM/YYYY)')
+      return
+    }
 
     const selectedProduct = products.find(p => p.id.toString() === currentItem.product_id)
     
@@ -141,7 +265,7 @@ export const PurchaseForm: React.FC = () => {
       entered_units_per_pack: selectedProduct?.units_per_pack || 1
     }])
 
-    // Reset line item form
+    // Reset line item form & combobox search state
     setCurrentItem({
       product_id: '',
       batch_number: '',
@@ -151,6 +275,9 @@ export const PurchaseForm: React.FC = () => {
       mrp: '',
       selling_price: ''
     })
+    setProductSearchQuery('')
+    setIsDropdownOpen(false)
+    setSelectedResultIndex(-1)
     setError('')
   }
 
@@ -309,14 +436,15 @@ export const PurchaseForm: React.FC = () => {
                 disabled={isReadOnly}
                 className="font-mono" placeholder="Enter invoice  number..."
               />
-              <Input 
-                label="Purchase Date *" 
-                type="date" 
-                name="purchase_date" 
-                value={purchaseData.purchase_date} 
-                onChange={handlePurchaseDataChange}
-                disabled={isReadOnly} placeholder="Enter purchase  date *..."
-              />
+              <div>
+                <DatePicker
+                  label="Purchase Date"
+                  required
+                  value={purchaseData.purchase_date}
+                  onChange={(val) => setPurchaseData(prev => ({ ...prev, purchase_date: val }))}
+                  disabled={isReadOnly}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -327,27 +455,106 @@ export const PurchaseForm: React.FC = () => {
             <CardHeader title="Add Line Item" className="bg-slate-50/50" />
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-6 gap-4 items-end">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Product</label>
-                  <select
-                    name="product_id"
-                    value={currentItem.product_id}
-                    onChange={handleCurrentItemChange}
-                    className="block w-full px-2 py-2 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm"
-                  >
-                    <option value="">Select Product...</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} {p.strength} ({p.pack_type || p.unit})</option>
-                    ))}
-                  </select>
+                <div className="sm:col-span-2 relative" ref={productContainerRef}>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Product *</label>
+                  {selectedProduct ? (
+                    <div className="flex items-center justify-between w-full px-3 py-1.5 bg-teal-50 border border-teal-400 rounded-lg shadow-sm text-sm text-slate-800">
+                      <div className="truncate pr-2">
+                        <span className="font-bold text-slate-900">{selectedProduct.name}</span>
+                        {selectedProduct.strength && (
+                          <span className="text-xs text-slate-600 ml-1 font-medium">({selectedProduct.strength})</span>
+                        )}
+                        <span className="text-xs text-teal-700 ml-1 font-medium">
+                          [{selectedProduct.pack_type || selectedProduct.unit || 'Unit'}]
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCurrentItem(prev => ({ ...prev, product_id: '' }))
+                          setProductSearchQuery('')
+                          setIsDropdownOpen(true)
+                        }}
+                        className="text-slate-400 hover:text-red-500 focus:outline-none px-1 py-0.5 rounded text-xs font-bold"
+                        title="Change selected product"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search product by name, brand, barcode..."
+                        value={productSearchQuery}
+                        onChange={e => {
+                          setProductSearchQuery(e.target.value)
+                          if (!isDropdownOpen) setIsDropdownOpen(true)
+                        }}
+                        onFocus={() => setIsDropdownOpen(true)}
+                        onKeyDown={handleProductKeyDown}
+                        className="block w-full px-3 py-2 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm placeholder-slate-400"
+                      />
+                      {isSearching && (
+                        <div className="absolute right-3 top-2.5">
+                          <svg className="animate-spin h-4 w-4 text-teal-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isDropdownOpen && !selectedProduct && (
+                    <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-60 overflow-y-auto z-50">
+                      {displayedProducts.length > 0 ? (
+                        displayedProducts.map((p, index) => (
+                          <div
+                            key={p.id}
+                            className={`px-3 py-2 cursor-pointer border-b border-slate-100 last:border-0 text-sm transition-colors ${
+                              index === selectedResultIndex
+                                ? 'bg-teal-50 font-semibold text-teal-900 active-product-option'
+                                : 'hover:bg-slate-50 text-slate-700'
+                            }`}
+                            onClick={() => handleSelectProduct(p)}
+                          >
+                            <div className="flex justify-between items-start">
+                              <span className="font-medium text-slate-900">{p.name}</span>
+                              {p.barcode && (
+                                <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono ml-2">
+                                  BC: {p.barcode}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-x-2 text-xs text-slate-500 mt-0.5">
+                              {p.strength && <span>{p.strength}</span>}
+                              {(p.pack_type || p.unit) && <span>({p.pack_type || p.unit})</span>}
+                              {p.manufacturer && <span className="text-slate-400">• {p.manufacturer}</span>}
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-4 py-3 text-sm text-slate-400 text-center">
+                          {productSearchQuery.trim() ? 'No matching active products found.' : 'No active products available.'}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Batch</label>
                   <input type="text" name="batch_number" value={currentItem.batch_number} onChange={handleCurrentItemChange} className="block w-full px-2 py-2 bg-white border border-slate-300 rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500" placeholder="BAT-123" />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Expiry</label>
-                  <input type="month" name="expiry_date" value={currentItem.expiry_date} onChange={handleCurrentItemChange} className="block w-full px-2 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500" placeholder="Enter expiry date..." />
+                  <MonthYearPicker
+                    label="Expiry"
+                    required
+                    value={currentItem.expiry_date}
+                    onChange={(val) => setCurrentItem(prev => ({ ...prev, expiry_date: val }))}
+                    disabled={isReadOnly}
+                    placeholder="MM/YYYY"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Qty</label>
@@ -446,7 +653,7 @@ export const PurchaseForm: React.FC = () => {
                           {product ? `${product.name} ${product.strength}` : `Product #${item.product_id}`}
                         </TableCell>
                         <TableCell className="font-mono text-slate-500 uppercase">{item.batch_number}</TableCell>
-                        <TableCell>{item.expiry_date}</TableCell>
+                        <TableCell>{formatMonthYear(item.expiry_date || item.parsed_expiry_date)}</TableCell>
                         <TableCell className="text-right font-medium text-slate-700">{item.parsed_quantity}</TableCell>
                         <TableCell className="text-right text-slate-700">₹{(item.parsed_purchase_price / 100).toFixed(2)}</TableCell>
                         <TableCell className="text-right font-semibold text-slate-900">₹{(lineTotal / 100).toFixed(2)}</TableCell>

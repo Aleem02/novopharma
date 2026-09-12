@@ -100,9 +100,9 @@ describe('ProductService', () => {
 
   describe('List & Search', () => {
     beforeEach(() => {
-      ProductService.createProduct({ name: 'Paracetamol', generic_name: 'Acetaminophen', barcode: '1001', selling_price: 100, tax_rate: 0 })
-      ProductService.createProduct({ name: 'Aspirin', generic_name: 'Acetylsalicylic acid', barcode: '1002', selling_price: 200, tax_rate: 0 })
-      ProductService.createProduct({ name: 'Ibuprofen', generic_name: 'Ibuprofen', barcode: '1003', selling_price: 300, tax_rate: 0 })
+      ProductService.createProduct({ name: 'Paracetamol', generic_name: 'Acetaminophen', strength: '500mg', barcode: '1001', selling_price: 100, tax_rate: 0 })
+      ProductService.createProduct({ name: 'Aspirin', generic_name: 'Acetylsalicylic acid', strength: '100mg', barcode: '1002', selling_price: 200, tax_rate: 0 })
+      ProductService.createProduct({ name: 'Ibuprofen', generic_name: 'Ibuprofen', strength: '400mg', barcode: '1003', selling_price: 300, tax_rate: 0 })
     })
 
     it('lists all products ordered by name', () => {
@@ -129,6 +129,12 @@ describe('ProductService', () => {
       const list = ProductService.searchProducts('1002')
       expect(list.length).toBe(1)
       expect(list[0].name).toBe('Aspirin')
+    })
+
+    it('searches by strength', () => {
+      const list = ProductService.searchProducts('400mg')
+      expect(list.length).toBe(1)
+      expect(list[0].name).toBe('Ibuprofen')
     })
   })
 
