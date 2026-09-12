@@ -195,7 +195,7 @@ export const MainLayout: React.FC = () => {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative bg-slate-50">
         <TopMenuBar />
 
-        <div className="absolute top-16 right-4 z-50">
+        <div className="fixed bottom-4 right-4 z-50">
           <UpdateIndicator />
         </div>
         

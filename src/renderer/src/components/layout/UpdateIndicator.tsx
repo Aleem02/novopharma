@@ -33,9 +33,9 @@ export const UpdateIndicator = () => {
     }
   }, [])
 
-  // Auto-dismiss the UP_TO_DATE toast after 10 seconds
+  // Auto-dismiss the UP_TO_DATE and ERROR toast after 10 seconds
   useEffect(() => {
-    if (updateState.state === 'UP_TO_DATE') {
+    if (updateState.state === 'UP_TO_DATE' || updateState.state === 'ERROR') {
       const timer = setTimeout(() => {
         setUpdateState({ state: 'IDLE' })
       }, 10000)
@@ -179,21 +179,21 @@ export const UpdateIndicator = () => {
   // 6. ERROR: Retryable panel
   if (updateState.state === 'ERROR') {
     return (
-      <div className="flex items-center space-x-3 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg shadow-xl mr-4 z-50">
+      <div className="flex items-center space-x-3 px-4 py-3 bg-slate-900 border border-red-500/40 rounded-xl shadow-2xl z-50">
         <div className="flex flex-col">
-          <span className="text-sm font-semibold text-red-500">Update Failed</span>
-          <span className="text-xs text-slate-400">{updateState.message || 'An error occurred during update.'}</span>
+          <span className="text-sm font-semibold text-red-400">Update Failed</span>
+          <span className="text-xs text-slate-300">{updateState.message || 'An error occurred during update.'}</span>
         </div>
-        <div className="flex space-x-2">
+        <div className="flex items-center space-x-2 ml-2">
           <button
             onClick={handleDismiss}
-            className="px-2.5 py-1.5 text-xs text-slate-400 hover:text-slate-200"
+            className="px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
           >
             Close
           </button>
           <button
             onClick={handleCheckUpdates}
-            className="px-3 py-1.5 text-xs font-semibold bg-red-600 text-white rounded hover:bg-red-500 transition-colors shadow-sm"
+            className="px-3 py-1.5 text-xs font-semibold bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors shadow-sm"
           >
             Retry
           </button>
