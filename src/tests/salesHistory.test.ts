@@ -6,9 +6,9 @@ import { ProductService } from '../main/services/productService'
 import { CustomerService } from '../main/services/customerService'
 
 describe('SalesHistory Repository & Service Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {

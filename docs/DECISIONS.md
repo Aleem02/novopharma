@@ -24,9 +24,9 @@
    - _Decision:_ Use an Ed25519 asymmetric key pair generated via Node.js `crypto`. The private key is protected locally using Electron's `safeStorage` asynchronous APIs (which natively use Windows DPAPI). TPM is optional, not required for V1.
    - _Reason:_ Provides native OS-level protection tied to the specific Windows user/machine. The private key never leaves the Windows installation, never enters Firestore, never enters renderer JavaScript, never enters logs, and is not stored as plaintext. _(Note: PHASE 3.5 implements the complete end-to-end cryptographic challenge protocol.)_
 
-7. **Backup Encryption**
-   - _Decision:_ AES-256-GCM. A tenant-specific backup encryption key must be protected by a server-controlled key-management mechanism (e.g., GCP KMS, to be verified during implementation). The desktop app only receives authorized key material temporarily in memory during backup/restore.
-   - _Reason:_ Ensures backups are secure. The key is never hardcoded, logged, or placed in source code. Each backup payload is encrypted with a unique IV/nonce, an authentication tag, and backup format/version metadata. Restore capabilities are preserved for legitimate PC replacements.
+7. **Backup Storage & Encryption (v1.6 Update)**
+   - _Decision:_ Local backups and v1.6 Firebase Cloud Backups are stored as raw `.sqlite` files. Application-level encryption (AES-256-GCM) is intentionally not used for cloud backups.
+   - _Reason:_ Cloud backups are secured at rest using private Firebase Cloud Storage IAM and Security Rules scoped by tenant ID (`request.auth.token.tenantId == tenantId`). Storing raw `.sqlite` files allows authorized administrators to manually download and inspect or restore backups directly using standard tools or the desktop app. Integrity is verified using SHA-256 checksums and SQLite pragmas (`integrity_check`, `foreign_key_check`). Historical proposal for application-level KMS encryption is superseded for v1.6.
 
 8. **Initial Client Credential Delivery**
    - _Decision:_ Super Admin creates the Firebase Auth account -> generates a secure random temporary password -> sends Firebase password-reset email -> client establishes a permanent password -> client logs into NovoPharma.

@@ -11,9 +11,9 @@ import { ReportService } from '../main/services/reportService'
 describe('Financial Reconciliation', () => {
   let productId: number
   
-  beforeAll(() => {
+  beforeAll(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
     SettingService.initializeDefaults()
 
     // 1. Setup supplier and product

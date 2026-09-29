@@ -21,6 +21,9 @@ export class SettingService {
         backup_auto_enabled: "false",
         backup_location: "",
         backup_last_local_success: "",
+        backup_cloud_enabled: "false",
+        backup_last_cloud_success: "",
+        backup_last_cloud_error: "",
       };
 
       for (const [key, value] of Object.entries(defaults)) {

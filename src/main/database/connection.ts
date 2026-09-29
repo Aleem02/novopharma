@@ -64,9 +64,19 @@ export class DatabaseManager {
     return this.instance;
   }
 
+  static getDbPath(): string {
+    return this.dbPath;
+  }
+
   static close(): void {
     if (this.instance) {
-      this.instance.close();
+      try {
+        if (this.instance.open) {
+          this.instance.close();
+        }
+      } catch {
+        /* ignore */
+      }
       this.instance = null;
       Logger.info("Database", "SQLite connection closed gracefully");
     }

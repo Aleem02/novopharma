@@ -6,9 +6,9 @@ import { PrescriptionService } from '../main/services/prescriptionService'
 import { ProductService } from '../main/services/productService'
 
 describe('PrescriptionService Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {

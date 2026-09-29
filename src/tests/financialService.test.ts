@@ -9,9 +9,9 @@ import { PurchaseService } from '../main/services/purchaseService'
 import { SalesReturnService } from '../main/services/salesReturnService'
 
 describe('FinancialService Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {

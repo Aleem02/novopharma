@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { BackupService } from '../main/services/backupService'
 import { DatabaseManager } from '../main/database/connection'
-import { MigrationRunner } from '../main/database/migrations'
+import { MigrationRunner, MIGRATIONS } from '../main/database/migrations'
 import Database from 'better-sqlite3'
 import * as fs from 'fs'
 import * as path from 'path'
@@ -34,7 +34,7 @@ describe('BackupService', () => {
   const backupDbPath = path.join(testDir, 'test_backup.sqlite')
   const corruptDbPath = path.join(testDir, 'test_corrupt.sqlite')
   const fkInvalidDbPath = path.join(testDir, 'test_fk_invalid.sqlite')
-  beforeEach(() => {
+  beforeEach(async () => {
     // Clean up
     [mockDbPath, backupDbPath, corruptDbPath, fkInvalidDbPath].forEach(p => {
       if (fs.existsSync(p)) fs.unlinkSync(p)
@@ -54,7 +54,7 @@ describe('BackupService', () => {
     // Setup active db mock
     vi.spyOn(app, 'getPath').mockReturnValue(testDir)
     const db = DatabaseManager.initialize(mockDbPath)
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {
@@ -97,7 +97,7 @@ describe('BackupService', () => {
   it('C. Foreign-key-invalid database rejected, active DB unchanged', async () => {
     // Create a standalone DB, run migrations
     const badDb = new Database(fkInvalidDbPath)
-    MigrationRunner.run(badDb)
+    await MigrationRunner.run(badDb)
     
     // Insert invalid foreign key by bypassing PRAGMA foreign_keys temporarily
     badDb.pragma('foreign_keys = OFF')
@@ -115,7 +115,7 @@ describe('BackupService', () => {
     const tempDbPath = path.join(testDir, 'temp_generate.sqlite')
     if (fs.existsSync(tempDbPath)) fs.unlinkSync(tempDbPath)
     const tempDb = new Database(tempDbPath)
-    MigrationRunner.run(tempDb)
+    await MigrationRunner.run(tempDb)
     tempDb.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('test_key', 'test_value', 0)").run()
     await tempDb.backup(backupDbPath)
     tempDb.close()
@@ -147,7 +147,7 @@ describe('BackupService', () => {
     // Create a valid backup to restore
     const tempDbPath = path.join(testDir, 'temp_valid.sqlite')
     const tempDb = new Database(tempDbPath)
-    MigrationRunner.run(tempDb)
+    await MigrationRunner.run(tempDb)
     await tempDb.backup(backupDbPath)
     tempDb.close()
 
@@ -176,6 +176,47 @@ describe('BackupService', () => {
     // We simply call restoreBackup. If it throws an error about integrity_check, it fails.
     const result = await BackupService.restoreBackup(backupDbPath)
     expect(result).toBe(true)
+  })
+
+  it('K. Context B: If migration fails during restore of a backup, live database reverts to pre-restore safety backup', async () => {
+    // 1. Setup live DB with canary data
+    const activeDb = DatabaseManager.getInstance()
+    activeDb.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('live_canary', 'keep_me_alive', 0)").run()
+
+    // 2. Create a backup file that passes initial validation but will fail migration 0017
+    const failingBackupPath = path.join(testDir, 'test_failing_migration_backup.sqlite')
+    if (fs.existsSync(failingBackupPath)) fs.unlinkSync(failingBackupPath)
+
+    const fDb = new Database(failingBackupPath)
+    const migrationsUpTo16 = MIGRATIONS.filter((m) => m.id <= 16)
+    fDb.prepare("CREATE TABLE IF NOT EXISTS _migrations (id INTEGER PRIMARY KEY, name TEXT NOT NULL, applied_at INTEGER NOT NULL);").run()
+    for (const m of migrationsUpTo16) {
+      fDb.exec(m.sql)
+      fDb.prepare("INSERT INTO _migrations (id, name, applied_at) VALUES (?, ?, ?)").run(m.id, m.name, Date.now())
+    }
+    fDb.close()
+
+    // Inject failing migration 17 temporarily
+    const badMigration = {
+      id: 17,
+      name: "0017_remove_medicine_directory",
+      sql: "INVALID SQL STATEMENT THAT FAILS;",
+    }
+    const orig17 = MIGRATIONS[16]
+    MIGRATIONS[16] = badMigration
+
+    // 3. Attempt restore which will fail during MigrationRunner.run
+    await expect(BackupService.restoreBackup(failingBackupPath)).rejects.toThrow(/Restore failed during database migration/)
+
+    MIGRATIONS[16] = orig17
+
+    // 4. Verify live database was safely reverted to safety backup and canary is intact!
+    const restoredLiveDb = DatabaseManager.getInstance()
+    const row = restoredLiveDb.prepare("SELECT value FROM settings WHERE key = 'live_canary'").get() as any
+    expect(row).toBeDefined()
+    expect(row.value).toBe('keep_me_alive')
+
+    if (fs.existsSync(failingBackupPath)) fs.unlinkSync(failingBackupPath)
   })
 
 })

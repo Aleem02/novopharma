@@ -21,7 +21,7 @@ if (!gotTheLock) {
 } else {
   let isAppInitialized = false;
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     Logger.info("Lifecycle", "Application ready, initializing...");
 
     // Setup IPC explicit channels before creating window
@@ -37,7 +37,7 @@ if (!gotTheLock) {
 
     try {
       const db = DatabaseManager.initialize();
-      MigrationRunner.run(db);
+      await MigrationRunner.run(db, DatabaseManager.getDbPath());
 
       // Initialize the medicine directory asynchronously in the background
       MedicineDirectoryService.initializeBackgroundImport();

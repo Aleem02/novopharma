@@ -7,11 +7,11 @@ import { Database } from 'better-sqlite3'
 describe('Data Type & Representation Reliability', () => {
   let db: Database
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // @ts-ignore
     DatabaseManager.instance = null
     db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {

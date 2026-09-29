@@ -8,9 +8,9 @@ import { PurchaseService } from '../main/services/purchaseService'
 import { FirebaseAuthService } from '../main/services/firebaseAuth'
 
 describe('StockAdjustmentService Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
     
     // Mock user email
     vi.spyOn(FirebaseAuthService, 'getCurrentUserEmail').mockReturnValue('operator@novopharma.com')

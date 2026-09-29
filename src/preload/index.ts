@@ -223,6 +223,13 @@ const api = {
       secureInvoke("api:database:openBackupFolder", path),
     restore: () => secureInvoke("api:database:restore"),
   },
+  cloudBackup: {
+    getStatus: () => secureInvoke("api:cloudBackup:getStatus"),
+    list: () => secureInvoke("api:cloudBackup:list"),
+    uploadLatest: () => secureInvoke("api:cloudBackup:uploadLatest"),
+    download: (cloudFileName: string, destinationPath?: string) =>
+      secureInvoke("api:cloudBackup:download", { cloudFileName, destinationPath }),
+  },
   update: {
     check: () => secureInvoke("api:update:check"),
     download: () => secureInvoke("api:update:download"),
@@ -240,6 +247,12 @@ const api = {
     getPrinters: () => secureInvoke("api:print:getPrinters"),
     printDocument: (html: string, options: any) =>
       secureInvoke("api:print:printDocument", { html, options }),
+  },
+  diagnostics: {
+    exportMigrationReport: (payload?: { reportPath?: string; attemptId?: string }) =>
+      secureInvoke("api:diagnostics:exportMigrationReport", payload),
+    openLogsFolder: () => secureInvoke("api:diagnostics:openLogsFolder"),
+    getLatestReport: () => secureInvoke("api:diagnostics:getLatestReport"),
   },
 };
 

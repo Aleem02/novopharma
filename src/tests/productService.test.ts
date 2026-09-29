@@ -4,9 +4,9 @@ import { MigrationRunner } from '../main/database/migrations'
 import { ProductService } from '../main/services/productService'
 
 describe('ProductService', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(DatabaseManager.getInstance())
+    await MigrationRunner.run(DatabaseManager.getInstance())
   })
 
   afterEach(() => {

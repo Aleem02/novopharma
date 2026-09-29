@@ -36,9 +36,11 @@ import { SettingService } from "../services/settingService";
 import { ReportService } from "../services/reportService";
 import { DocumentService } from "../services/documentService";
 import { BackupService, BackupManager } from "../services/backupService";
+import { CloudBackupService } from "../services/cloudBackupService";
 import { UpdateService } from "../services/updateService";
 import { PrintingService } from "../services/printingService";
 import { MedicineDirectoryService } from "../services/medicineDirectoryService";
+import { DiagnosticsService } from "../services/diagnosticsService";
 
 export function setupIpcHandlers() {
   ipcMain.handle(
@@ -1229,6 +1231,67 @@ export function setupIpcHandlers() {
     return false;
   });
 
+  // Cloud Backup Handlers
+  ipcMain.handle(
+    "api:cloudBackup:getStatus",
+    async (event: IpcMainInvokeEvent) => {
+      await enforceSecureIpc(event);
+      return CloudBackupService.getStatus();
+    },
+  );
+
+  ipcMain.handle(
+    "api:cloudBackup:list",
+    async (event: IpcMainInvokeEvent) => {
+      await enforceSecureIpc(event);
+      return await CloudBackupService.listCloudBackups();
+    },
+  );
+
+  ipcMain.handle(
+    "api:cloudBackup:uploadLatest",
+    async (event: IpcMainInvokeEvent) => {
+      await enforceSecureIpc(event);
+      await BackupManager.runManualBackup();
+      return true;
+    },
+  );
+
+  ipcMain.handle(
+    "api:cloudBackup:download",
+    async (
+      event: IpcMainInvokeEvent,
+      payload: { cloudFileName: string; destinationPath?: string },
+    ) => {
+      await enforceSecureIpc(event);
+      if (!payload || typeof payload.cloudFileName !== "string") {
+        throw new Error("Invalid parameters: cloudFileName is required.");
+      }
+
+      let savePath = payload.destinationPath;
+      if (!savePath) {
+        const win = BrowserWindow.fromWebContents(event.sender);
+        if (!win) throw new Error("No window context");
+
+        const saveResult = await dialog.showSaveDialog(win, {
+          title: "Save Cloud Backup File",
+          defaultPath: payload.cloudFileName,
+          filters: [{ name: "SQLite Database", extensions: ["sqlite", "db"] }],
+        });
+
+        if (saveResult.canceled || !saveResult.filePath) {
+          return null;
+        }
+        savePath = saveResult.filePath;
+      }
+
+      return await CloudBackupService.downloadCloudBackup(
+        payload.cloudFileName,
+        savePath,
+      );
+    },
+  );
+
   // Printing
   ipcMain.handle("api:print:getPrinters", async (event: IpcMainInvokeEvent) => {
     await enforceSecureIpc(event);
@@ -1260,4 +1323,35 @@ export function setupIpcHandlers() {
     await enforceSecureIpc(event, { isMutation: true });
     return await UpdateService.applyUpdate();
   });
+
+  // Diagnostics
+  ipcMain.handle(
+    "api:diagnostics:exportMigrationReport",
+    async (
+      event: IpcMainInvokeEvent,
+      payload?: { reportPath?: string; attemptId?: string },
+    ) => {
+      await enforceSecureIpc(event);
+      return await DiagnosticsService.exportReport(
+        payload?.reportPath,
+        payload?.attemptId,
+      );
+    },
+  );
+
+  ipcMain.handle(
+    "api:diagnostics:openLogsFolder",
+    async (event: IpcMainInvokeEvent) => {
+      await enforceSecureIpc(event);
+      return await DiagnosticsService.openLogsFolder();
+    },
+  );
+
+  ipcMain.handle(
+    "api:diagnostics:getLatestReport",
+    async (event: IpcMainInvokeEvent) => {
+      await enforceSecureIpc(event);
+      return DiagnosticsService.getLatestReportPath();
+    },
+  );
 }

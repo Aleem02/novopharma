@@ -1,6 +1,6 @@
 {
   "name": "novopharma",
-  "version": "1.4.0",
+  "version": "1.6.0",
   "description": "NovoPharma V1 Windows desktop pharmacy billing and inventory application.",
   "main": "./out/main/index.js",
   "author": "NovoPharma",
@@ -16,9 +16,12 @@
     "postinstall": "electron-builder install-app-deps",
     "start": "electron-vite preview",
     "dev": "npm run rebuild:electron && electron-vite dev",
-    "build": "npm run typecheck && electron-vite build",
-    "build:win": "npm run build && electron-builder --win --config",
-    "pack": "npm run build && electron-builder --dir --config",
+    "verify:abi": "node scripts/verify-electron-abi.js",
+    "verify:release": "node scripts/verify-release-artifacts.js",
+    "smoke:packaged": "node scripts/smoke-test-packaged-app.js",
+    "build": "npm run rebuild:electron && npm run typecheck && electron-vite build && npm run verify:abi",
+    "build:win": "npm run build && electron-builder --win --config && npm run verify:release",
+    "pack": "npm run build && electron-builder --dir --config && npm run verify:release",
     "test": "npm run rebuild:node && vitest run"
   },
   "dependencies": {

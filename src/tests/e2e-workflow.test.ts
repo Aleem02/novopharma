@@ -49,7 +49,7 @@ describe('ERP End-to-End Workflow & Offline Testing', () => {
       fs.mkdirSync(dbDir, { recursive: true })
     }
     const db = DatabaseManager.initialize(dbPath)
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterAll(() => {

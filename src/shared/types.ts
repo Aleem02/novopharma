@@ -612,3 +612,21 @@ export interface MedicineDirectoryRecord {
   units_per_pack?: number | null
   pack_description?: string | null
 }
+
+export interface CloudBackupItem {
+  name: string
+  fullPath: string
+  size: number
+  createdAt: string
+  sha256?: string
+  appVersion?: string
+  installationId?: string
+  tenantId?: string
+}
+
+export interface CloudBackupStatus {
+  enabled: boolean
+  lastSuccess: string | null
+  lastError: string | null
+}
+

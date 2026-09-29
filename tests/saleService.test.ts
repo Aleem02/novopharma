@@ -5,10 +5,10 @@ import { ProductService } from '../src/main/services/productService'
 import { SupplierService } from '../src/main/services/supplierService'
 import { PurchaseService } from '../src/main/services/purchaseService'
 describe('SaleService Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Setup isolated in-memory DB for each test
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {

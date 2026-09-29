@@ -4,9 +4,9 @@ import { MigrationRunner } from '../main/database/migrations'
 import { CustomerService } from '../main/services/customerService'
 
 describe('CustomerService Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {

@@ -30,8 +30,6 @@ describe('Database Architecture', () => {
 
     it('enforces PRAGMA WAL', () => {
       const result = db.pragma('journal_mode', { simple: true })
-      // Some systems/memory DBs might report 'memory' instead of 'wal' for :memory:, 
-      // but if it's forced it might say 'memory'. Let's just check it doesn't throw.
       expect(result).toBeDefined()
     })
 
@@ -53,8 +51,8 @@ describe('Database Architecture', () => {
   })
 
   describe('Migrations', () => {
-    it('runs migrations deterministically and creates tables', () => {
-      MigrationRunner.run(db)
+    it('runs migrations deterministically and creates tables', async () => {
+      await MigrationRunner.run(db)
       const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as { name: string }[]
       
       const tableNames = tables.map(t => t.name)
@@ -63,14 +61,14 @@ describe('Database Architecture', () => {
       expect(tableNames).toContain('audit_logs')
       
       const version = db.prepare('SELECT MAX(id) as v FROM _migrations').get() as { v: number }
-      expect(version.v).toBe(16)
+      expect(version.v).toBe(17)
     })
 
-    it('does not re-run migrations on subsequent calls (idempotency)', () => {
-      MigrationRunner.run(db)
+    it('does not re-run migrations on subsequent calls (idempotency)', async () => {
+      await MigrationRunner.run(db)
       const initialRun = db.prepare('SELECT applied_at FROM _migrations WHERE id = 1').get() as any
       
-      MigrationRunner.run(db)
+      await MigrationRunner.run(db)
       const secondRun = db.prepare('SELECT applied_at FROM _migrations WHERE id = 1').get() as any
       
       expect(initialRun.applied_at).toBe(secondRun.applied_at)
@@ -78,8 +76,8 @@ describe('Database Architecture', () => {
   })
 
   describe('Transactions', () => {
-    beforeEach(() => {
-      MigrationRunner.run(db)
+    beforeEach(async () => {
+      await MigrationRunner.run(db)
     })
 
     it('commits successful transactions', () => {
@@ -106,8 +104,8 @@ describe('Database Architecture', () => {
   })
 
   describe('Relational & Parameterized Integrity', () => {
-    beforeEach(() => {
-      MigrationRunner.run(db)
+    beforeEach(async () => {
+      await MigrationRunner.run(db)
     })
 
     it('enforces foreign key constraints immediately', () => {
@@ -134,13 +132,13 @@ describe('Database Architecture', () => {
   })
 
   describe('Database Integrity', () => {
-    it('passes integrity check on healthy database', () => {
-      MigrationRunner.run(db)
+    it('passes integrity check on healthy database', async () => {
+      await MigrationRunner.run(db)
       expect(() => DatabaseIntegrity.check(db)).not.toThrow()
     })
 
-    it('detects foreign key corruption (simulated via pragma off)', () => {
-      MigrationRunner.run(db)
+    it('detects foreign key corruption (simulated via pragma off)', async () => {
+      await MigrationRunner.run(db)
       // Create a temporary table to simulate FK constraint
       db.prepare('CREATE TABLE test_fk (id INTEGER PRIMARY KEY, setting_key TEXT, FOREIGN KEY(setting_key) REFERENCES settings(key))').run()
 

@@ -7,9 +7,9 @@ import { ProductService } from '../main/services/productService'
 import { PurchaseService } from '../main/services/purchaseService'
 
 describe('SettingService & Invoice Numbering', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
     SettingService.initializeDefaults()
   })
 

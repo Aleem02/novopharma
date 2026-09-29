@@ -124,6 +124,12 @@ declare global {
         openBackupFolder: (path: string) => Promise<boolean>
         restore: () => Promise<boolean>
       }
+      cloudBackup: {
+        getStatus: () => Promise<import('../../shared/types').CloudBackupStatus>
+        list: () => Promise<import('../../shared/types').CloudBackupItem[]>
+        uploadLatest: () => Promise<{ success: boolean; cloudPath?: string; error?: string }>
+        download: (cloudFileName: string, destinationPath?: string) => Promise<{ success: boolean; filePath: string }>
+      }
       update: {
         check: () => Promise<void>
         download: () => Promise<void>

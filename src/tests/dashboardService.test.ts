@@ -10,9 +10,9 @@ import { SalesReturnService } from '../main/services/salesReturnService'
 import { StockAdjustmentService } from '../main/services/stockAdjustmentService'
 
 describe('DashboardService Integration Tests', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     const db = DatabaseManager.initialize(':memory:')
-    MigrationRunner.run(db)
+    await MigrationRunner.run(db)
   })
 
   afterEach(() => {

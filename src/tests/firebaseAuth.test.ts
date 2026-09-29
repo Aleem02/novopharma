@@ -9,6 +9,17 @@ const { mockSignIn, mockSignOut, mockGetIdToken, mockAuthStateReady } = vi.hoist
   }
 })
 
+vi.mock('electron', () => ({
+  app: {
+    getPath: vi.fn().mockReturnValue(__dirname),
+  },
+  safeStorage: {
+    isEncryptionAvailable: vi.fn().mockReturnValue(true),
+    encryptString: vi.fn((str: string) => Buffer.from(str)),
+    decryptString: vi.fn((buf: Buffer) => buf.toString()),
+  },
+}))
+
 // Mock firebase SDK before import
 vi.mock('firebase/app', () => ({
   initializeApp: vi.fn(),
@@ -29,7 +40,7 @@ vi.mock('firebase/auth', () => ({
   signOut: mockSignOut
 }))
 
-import { FirebaseAuthService } from '../main/services/firebaseAuth'
+import { FirebaseAuthService, SecureElectronPersistence } from '../main/services/firebaseAuth'
 
 const originalEnv = { ...process.env }
 
@@ -147,6 +158,45 @@ describe('Firebase Auth Boundary', () => {
       // Trigger logout
       await FirebaseAuthService.signOut()
       expect(mockSignOut).toHaveBeenCalled()
+    })
+  })
+
+  describe('SecureElectronPersistence multi-key store', () => {
+    it('persists and retrieves multiple storage keys independently without overwriting', async () => {
+      const persistence = new SecureElectronPersistence()
+
+      await persistence._set('key1', { user: 'user1' })
+      await persistence._set('key2', { token: 'token2' })
+
+      const val1 = await persistence._get('key1')
+      const val2 = await persistence._get('key2')
+
+      expect(val1).toEqual({ user: 'user1' })
+      expect(val2).toEqual({ token: 'token2' })
+
+      await persistence._remove('key1')
+      expect(await persistence._get('key1')).toBeNull()
+      expect(await persistence._get('key2')).toEqual({ token: 'token2' })
+    })
+
+    it('automatically migrates legacy single-value auth session object without signing user out', async () => {
+      const fs = await import('fs')
+      const path = await import('path')
+      const { app } = await import('electron')
+
+      const sessionFile = path.join(app.getPath('userData'), 'auth_session.enc')
+      const legacyPayload = { uid: 'legacy_user_999', email: 'legacy@novopharma.com', stsTokenManager: { refreshToken: 'mock_refresh_token' } }
+      fs.writeFileSync(sessionFile, Buffer.from(JSON.stringify(legacyPayload)))
+
+      const persistence = new SecureElectronPersistence()
+      const defaultKey = 'firebase:authUser:test-api-key:[DEFAULT]'
+      const restoredUser = await persistence._get(defaultKey)
+
+      expect(restoredUser).toBeDefined()
+      expect(restoredUser.uid).toBe('legacy_user_999')
+      expect(restoredUser.email).toBe('legacy@novopharma.com')
+
+      if (fs.existsSync(sessionFile)) fs.unlinkSync(sessionFile)
     })
   })
 })

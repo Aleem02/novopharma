@@ -6,6 +6,7 @@ import { join } from "path";
 import { app, BrowserWindow } from "electron";
 import { MigrationRunner } from "../database/migrations";
 import { SettingService } from "./settingService";
+import { CloudBackupService } from "./cloudBackupService";
 
 export class BackupService {
   /**
@@ -95,6 +96,7 @@ export class BackupService {
     }
 
     // 2. Create Safety Backup of Current State
+    let safetyBackupPath = "";
     try {
       const db = DatabaseManager.getInstance();
 
@@ -108,7 +110,7 @@ export class BackupService {
       db.pragma("wal_checkpoint(TRUNCATE)");
 
       const userData = app.getPath("userData");
-      const safetyBackupPath = join(
+      safetyBackupPath = join(
         userData,
         `safety_backup_${Date.now()}.sqlite`,
       );
@@ -130,7 +132,7 @@ export class BackupService {
 
       const userData = app.getPath("userData");
       const targetDbPath =
-        (DatabaseManager as any).dbPath ||
+        DatabaseManager.getDbPath() ||
         join(userData, "novopharma_v1.sqlite");
       const walPath = targetDbPath + "-wal";
       const shmPath = targetDbPath + "-shm";
@@ -149,7 +151,7 @@ export class BackupService {
 
       // Reinitialize
       const newDb = DatabaseManager.initialize();
-      MigrationRunner.run(newDb);
+      await MigrationRunner.run(newDb, targetDbPath);
 
       // Notify UI to Reload
       const windows = BrowserWindow.getAllWindows() || [];
@@ -165,7 +167,48 @@ export class BackupService {
         "Backup",
         `CRITICAL: Failed during restore overwrite/reinitialize: ${error.message}`,
       );
-      throw new Error(`CRITICAL: Database restore failed: ${error.message}`);
+
+      // Context B Recovery: If migration or restore reinitialization fails, revert live database to safetyBackupPath
+      if (safetyBackupPath && fs.existsSync(safetyBackupPath)) {
+        try {
+          Logger.info(
+            "Backup",
+            `RECOVERY: Reverting live database to pre-restore safety backup ${safetyBackupPath}`,
+          );
+          DatabaseManager.close();
+
+          const userData = app.getPath("userData");
+          const targetDbPath =
+            DatabaseManager.getDbPath() ||
+            join(userData, "novopharma_v1.sqlite");
+          const walPath = targetDbPath + "-wal";
+          const shmPath = targetDbPath + "-shm";
+
+          fs.copyFileSync(safetyBackupPath, targetDbPath);
+          if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
+          if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath);
+
+          const restoredLiveDb = DatabaseManager.initialize();
+          const integrity = restoredLiveDb.pragma("integrity_check", { simple: true }) as string;
+          const fkViolations = restoredLiveDb.pragma("foreign_key_check") as any[];
+
+          if (integrity !== "ok" || (fkViolations && fkViolations.length > 0)) {
+            Logger.error("Backup", "CRITICAL: Reverted safety backup failed integrity validation!");
+          } else {
+            Logger.info(
+              "Backup",
+              "RECOVERY SUCCESSFUL: Live database reverted to pre-restore safety backup and integrity verified.",
+            );
+          }
+        } catch (revertErr: any) {
+          Logger.error(
+            "Backup",
+            `CRITICAL: Failed to revert live database to pre-restore safety backup: ${revertErr.message}`,
+          );
+        }
+      }
+
+      throw new Error(`Restore failed during database migration (${error.message}). Your previous database state has been safely restored.`);
     }
   }
 }
@@ -251,8 +294,19 @@ export class BackupManager {
         "Local backup successfully completed and validated",
       );
 
-      // 4. Enforce Retention
+      // 4. Enforce Local Retention
       this.enforceRetention(location);
+
+      // 5. Cloud Backup Attempt (if enabled)
+      if (SettingService.getSetting("backup_cloud_enabled") === "true") {
+        try {
+          Logger.info("BackupManager", "Attempting cloud upload of verified backup");
+          await CloudBackupService.uploadBackup(fullPath);
+        } catch (cloudErr: any) {
+          Logger.error("BackupManager", `Cloud backup failed gracefully: ${cloudErr.message}`);
+          SettingService.setSetting("backup_last_cloud_error", cloudErr.message);
+        }
+      }
     } catch (err: any) {
       Logger.error("BackupManager", `Backup flow failed: ${err.message}`);
 

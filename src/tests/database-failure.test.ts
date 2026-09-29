@@ -16,10 +16,10 @@ describe('Database Failure & Reliability', () => {
     DatabaseManager.instance = null
   })
 
-  it('safely reopens an existing database and preserves data', () => {
+  it('safely reopens an existing database and preserves data', async () => {
     // 1. Initialize & Write
     const db1 = DatabaseManager.initialize(testDbPath)
-    MigrationRunner.run(db1)
+    await MigrationRunner.run(db1)
     db1.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('ReopenTest', 'value', 0)").run()
     DatabaseManager.close()
     // @ts-ignore
