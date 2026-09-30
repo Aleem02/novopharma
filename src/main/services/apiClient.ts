@@ -13,10 +13,14 @@ export class ApiClient {
   static async request(
     endpoint: string,
     options: RequestInit = {},
+    timeoutMs: number = 8000,
   ): Promise<any> {
     if (endpoint.startsWith("http://") && !endpoint.includes("localhost")) {
       throw new Error("FATAL: Production API requests MUST use HTTPS.");
     }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const token = await FirebaseAuthService.getIdToken();
@@ -30,8 +34,16 @@ export class ApiClient {
         response = await fetch(endpoint, {
           ...options,
           headers,
+          signal: controller.signal,
         });
       } catch (fetchErr: any) {
+        if (fetchErr.name === "AbortError" || controller.signal.aborted) {
+          Logger.error(
+            "Network",
+            `API fetch timed out after ${timeoutMs}ms: ${endpoint}`,
+          );
+          throw new Error("NETWORK_UNAVAILABLE");
+        }
         // Fetch throws TypeError on network failure (no connection, dns failed, etc)
         Logger.error(
           "Network",
@@ -64,6 +76,8 @@ export class ApiClient {
       }
       Logger.error("Network", `API request error: ${err.message}`);
       throw err;
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
@@ -71,7 +85,7 @@ export class ApiClient {
     try {
       // @ts-ignore
       const backendUrl =
-        import.meta.env.VITE_BACKEND_URL || "https://api.novopharma.test";
+        import.meta.env.VITE_BACKEND_URL || "https://novopharma-admin.vercel.app";
       const data = await this.request(`${backendUrl}/api/desktop/health`, {
         method: "POST",
       });

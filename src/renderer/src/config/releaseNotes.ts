@@ -13,6 +13,56 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.6.1',
+    date: 'September 29, 2026',
+    title: 'Startup Reliability & Network Resilience Hotfix',
+    highlights: [
+      '8-second finite timeout for desktop API network requests.',
+      'Prevented activation status synchronization from stalling application launch on slow/unreachable networks.',
+      'Preserved local activation state and offline launch capabilities.',
+      'Updated production backend domain fallback.'
+    ],
+    sections: [
+      {
+        category: 'Bug Fixes',
+        items: [
+          'Startup Deadlock Fix: Added 8-second AbortController timeout to API requests to prevent infinite loading on splash screen.',
+          'Non-Blocking Activation Sync: Network activation status checks now log warnings on failure/timeout without blocking app startup.',
+          'Offline Mode Continuity: Existing authenticated and activated installations launch smoothly into POS even when backend is temporarily unreachable.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.6.0',
+    date: 'September 29, 2026',
+    title: 'Automated Cloud Backup, Diagnostic Engine & Schema Refactoring',
+    highlights: [
+      'Automated background cloud database backup to Firebase Storage.',
+      'Built-in System Diagnostics engine for local DB, network, and storage rules.',
+      'Schema Migration 0017 removing legacy SQLite medicine directory table for faster startup and smaller database size.',
+      'Tenant-isolated Firebase Storage security rules.'
+    ],
+    sections: [
+      {
+        category: 'New Features',
+        items: [
+          'Automated Cloud Backup: Background synchronization of pharmacy database snapshots to Firebase Cloud Storage.',
+          'On-Demand Cloud Sync: Trigger manual cloud backups directly from Settings with real-time status and download options.',
+          'Diagnostic Test Engine: Diagnostic suite verifying local database integrity, cloud connectivity, storage permissions, and migration status.'
+        ]
+      },
+      {
+        category: 'Improvements',
+        items: [
+          'Schema Optimization (Migration 0017): Removed legacy global medicine directory SQLite table, switching to fast in-memory dataset.',
+          'Tenant Isolation Rules: Enforced strict per-tenant cloud storage path scoping (tenants/{tenantId}/backups/{fileName}).',
+          'IPC Handler Safeguards: Main process handlers enhanced with error boundaries and automatic resource cleanup.'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.4.0',
     date: 'September 12, 2026',
     title: 'Global Date Selection Standard, Pharmacy Expiry MM/YYYY UX & Reports Center',

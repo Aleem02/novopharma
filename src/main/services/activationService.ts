@@ -30,7 +30,7 @@ export class ActivationService {
 
       // @ts-ignore
       const backendUrl =
-        import.meta.env.VITE_BACKEND_URL || "https://api.novopharma.test";
+        import.meta.env.VITE_BACKEND_URL || "https://novopharma-admin.vercel.app";
 
       // Step 1: Request Challenge
       let challengeResponse: {
@@ -223,7 +223,7 @@ export class ActivationService {
 
       // @ts-ignore
       const backendUrl =
-        import.meta.env.VITE_BACKEND_URL || "https://api.novopharma.test";
+        import.meta.env.VITE_BACKEND_URL || "https://novopharma-admin.vercel.app";
 
       let response: { activated: boolean };
       try {
@@ -292,7 +292,7 @@ export class ActivationService {
 
       // @ts-ignore
       const backendUrl =
-        import.meta.env.VITE_BACKEND_URL || "https://api.novopharma.test";
+        import.meta.env.VITE_BACKEND_URL || "https://novopharma-admin.vercel.app";
 
       try {
         const response = await ApiClient.request(

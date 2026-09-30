@@ -20,33 +20,46 @@ export const AuthScreen: React.FC = () => {
   const navigate = useNavigate()
 
   useEffect(() => {
+    let isMounted = true
+
     const init = async () => {
       try {
         const authenticated = await window.api.auth.isAuthenticated()
+        if (!isMounted) return
+
         setIsAuth(authenticated)
         
         if (authenticated) {
-          // Sync activation status with backend if online, then perform authoritative local check
+          // Sync activation status with backend if online; failures or timeouts log warnings and do not block local launch
           try {
             await window.api.activation.syncStatus()
           } catch (syncErr) {
             console.warn('Unable to sync status with backend on startup:', syncErr)
           }
 
+          if (!isMounted) return
+
           const activated = await window.api.activation.isActivated()
+          if (!isMounted) return
+
           if (activated) {
             navigate('/sales/pos')
-            return
           }
         }
       } catch (err) {
         console.error('Error checking startup state:', err)
       } finally {
-        setIsInitializing(false)
+        if (isMounted) {
+          setIsInitializing(false)
+        }
       }
     }
     
     init()
+
+    return () => {
+      isMounted = false
+    }
   }, [navigate])
 
   if (isInitializing) {

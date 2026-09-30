@@ -67,7 +67,7 @@ export class InstallationRegistrationService {
       // The API client will internally obtain the Firebase ID token and inject the Authorization header.
       // @ts-ignore
       const backendUrl =
-        import.meta.env.VITE_BACKEND_URL || "https://api.novopharma.test";
+        import.meta.env.VITE_BACKEND_URL || "https://novopharma-admin.vercel.app";
 
       await ApiClient.request(
         `${backendUrl}/api/desktop/activation/register-key`,
