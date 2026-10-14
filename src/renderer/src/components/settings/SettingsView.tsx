@@ -22,9 +22,75 @@ export const SettingsView: React.FC = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Update check states
+  const [updateStatus, setUpdateStatus] = useState<{
+    state: 'IDLE' | 'CHECKING' | 'UP_TO_DATE' | 'UPDATE_AVAILABLE' | 'DOWNLOADING' | 'DOWNLOADED' | 'INSTALLING' | 'ERROR';
+    version?: string;
+    currentVersion?: string;
+    percent?: number;
+    transferred?: string;
+    total?: string;
+    speed?: string;
+    message?: string;
+  }>({ state: 'IDLE' });
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [lastCheckedTime, setLastCheckedTime] = useState<string | null>(null);
+
   useEffect(() => {
     loadSettings();
+
+    const handleUpdateState = (data: any) => {
+      if (data && data.state) {
+        setUpdateStatus(data);
+        if (data.state !== 'CHECKING') {
+          setIsCheckingUpdate(false);
+          setLastCheckedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+        }
+      }
+    };
+
+    if (window.api && window.api.update) {
+      window.api.update.onStateChange(handleUpdateState);
+    }
+
+    return () => {
+      if (window.api && window.api.update) {
+        window.api.update.removeStateChangeListeners();
+      }
+    };
   }, []);
+
+  const handleCheckForUpdates = async () => {
+    if (isCheckingUpdate || updateStatus.state === 'CHECKING' || updateStatus.state === 'DOWNLOADING') {
+      return;
+    }
+    setIsCheckingUpdate(true);
+    setUpdateStatus({ state: 'CHECKING' });
+    try {
+      if (window.api && window.api.update) {
+        await window.api.update.check();
+      }
+    } catch (err: any) {
+      setIsCheckingUpdate(false);
+      setUpdateStatus({
+        state: 'ERROR',
+        message: err.message || 'Failed to check for updates.',
+      });
+    }
+  };
+
+  const handleDownloadUpdate = async () => {
+    try {
+      if (window.api && window.api.update) {
+        await window.api.update.download();
+      }
+    } catch (err: any) {
+      setUpdateStatus({
+        state: 'ERROR',
+        message: err.message || 'Failed to download update.',
+      });
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -140,7 +206,7 @@ export const SettingsView: React.FC = () => {
           </nav>
 
           {/* Build Version Badge (Clickable) */}
-          <div className="pt-6 border-t border-slate-200 mt-6">
+          <div className="pt-6 border-t border-slate-200 mt-6 space-y-2.5">
             <div
               onClick={() => setShowReleaseNotes(true)}
               className="bg-slate-50 hover:bg-teal-50/60 transition-colors rounded-lg p-3 border border-slate-200 hover:border-teal-300 cursor-pointer group"
@@ -161,6 +227,18 @@ export const SettingsView: React.FC = () => {
                 {versionInfo.build}
               </div>
             </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              isLoading={isCheckingUpdate || updateStatus.state === 'CHECKING'}
+              disabled={isCheckingUpdate || updateStatus.state === 'CHECKING' || updateStatus.state === 'DOWNLOADING'}
+              onClick={handleCheckForUpdates}
+              className="w-full text-xs font-semibold py-1.5"
+            >
+              Check for Updates
+            </Button>
           </div>
         </div>
 
@@ -168,10 +246,23 @@ export const SettingsView: React.FC = () => {
         <div className="flex-1">
           {activeTab === "general" && (
             <div className="space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                <h2 className="text-lg font-semibold text-slate-800 mb-4">
-                  Application & Build Information
-                </h2>
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-4">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold text-slate-800">
+                    Application & Build Information
+                  </h2>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    isLoading={isCheckingUpdate || updateStatus.state === 'CHECKING'}
+                    disabled={isCheckingUpdate || updateStatus.state === 'CHECKING' || updateStatus.state === 'DOWNLOADING'}
+                    onClick={handleCheckForUpdates}
+                  >
+                    Check for Updates
+                  </Button>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div
                     onClick={() => setShowReleaseNotes(true)}
@@ -199,6 +290,76 @@ export const SettingsView: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Real-time Update Status Feedback Banner */}
+                {updateStatus.state === 'UP_TO_DATE' && (
+                  <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-lg text-xs font-medium animate-fade-in">
+                    <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>NovoPharma is up to date (v{updateStatus.currentVersion || versionInfo.version}).</span>
+                    {lastCheckedTime && <span className="text-emerald-600 ml-auto text-[11px]">Checked at {lastCheckedTime}</span>}
+                  </div>
+                )}
+
+                {updateStatus.state === 'UPDATE_AVAILABLE' && (
+                  <div className="flex items-center justify-between p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-xs font-medium">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <span className="font-bold">New Version Available: v{updateStatus.version}</span>
+                        <span className="text-amber-700 ml-1.5">(Current: v{updateStatus.currentVersion || versionInfo.version})</span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleDownloadUpdate}
+                      className="bg-amber-600 hover:bg-amber-700 text-white border-none py-1 px-3 text-xs"
+                    >
+                      Download & Update
+                    </Button>
+                  </div>
+                )}
+
+                {updateStatus.state === 'DOWNLOADING' && (
+                  <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
+                    <div className="flex justify-between items-center text-slate-700 font-medium">
+                      <span>Downloading update v{updateStatus.version}...</span>
+                      <span className="font-mono text-teal-700">{updateStatus.percent || 0}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="bg-teal-600 h-2 transition-all duration-300"
+                        style={{ width: `${updateStatus.percent || 0}%` }}
+                      />
+                    </div>
+                    {updateStatus.speed && (
+                      <p className="text-[11px] text-slate-500">
+                        {updateStatus.transferred} MB / {updateStatus.total} MB ({updateStatus.speed} MB/s)
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {updateStatus.state === 'DOWNLOADED' && (
+                  <div className="flex items-center gap-2 p-3 bg-teal-50 border border-teal-200 text-teal-900 rounded-lg text-xs font-medium">
+                    <svg className="w-4 h-4 text-teal-600 shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>Update v{updateStatus.version} downloaded. Creating safety backup and restarting...</span>
+                  </div>
+                )}
+
+                {updateStatus.state === 'ERROR' && (
+                  <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-lg text-xs font-medium">
+                    <svg className="w-4 h-4 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{updateStatus.message || 'Unable to complete update check.'}</span>
+                  </div>
+                )}
               </div>
 
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

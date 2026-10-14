@@ -13,6 +13,40 @@ export interface ReleaseNote {
 
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.6.2',
+    date: 'October 14, 2026',
+    title: 'Inventory Batch Search Combobox & Settings Update Checker',
+    highlights: [
+      'Searchable inventory batch combobox in Stock Adjustments replacing the 25-item static dropdown limit.',
+      'Real-time batch search by medicine name, generic name, batch number, and barcode.',
+      'Safe manual "Check for Updates" button in Settings with live progress and zero database interruption.',
+      'Direct batch loading when navigating from Inventory Dashboard or Batch Details.'
+    ],
+    sections: [
+      {
+        category: 'New Features',
+        items: [
+          'Settings Manual Update Check: Trigger on-demand version checks with live feedback banners (Checking, Up-to-date, Download progress, and Error notices).',
+          'Inventory Batch Search Combobox: Replaced the static HTML select with a live, debounced search combobox featuring rich card layout, batch pills, and dosage details.'
+        ]
+      },
+      {
+        category: 'Bug Fixes',
+        items: [
+          'Batch Truncation Fix: Removed the default 25-item pagination cap on stock adjustments, allowing pharmacists to search and adjust any batch across the entire database.',
+          'Deep-Link Adjustment Fix: Selecting "Adjust Stock" on any batch in Inventory Dashboard or Batch Details now directly retrieves that specific batch via direct ID lookup.',
+          'Strength Null Formatting: Resolved an issue where products without a dosage strength displayed the literal string "null".'
+        ]
+      },
+      {
+        category: 'Improvements',
+        items: [
+          'Enriched Inventory Repository queries to automatically left-join complete product packaging metadata (unit, pack type, units per pack, strength).'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.6.1',
     date: 'September 29, 2026',
     title: 'Startup Reliability & Network Resilience Hotfix',

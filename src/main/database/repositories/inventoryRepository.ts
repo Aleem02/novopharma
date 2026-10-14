@@ -74,7 +74,8 @@ export class InventoryRepository {
 
     const dataQuery = `
       SELECT b.*, 
-             p.id as p_id, p.name as p_name, p.generic_name as p_generic_name, p.manufacturer as p_manufacturer, p.barcode as p_barcode
+             p.id as p_id, p.name as p_name, p.generic_name as p_generic_name, p.manufacturer as p_manufacturer, p.barcode as p_barcode,
+             p.strength as p_strength, p.unit as p_unit, p.pack_type as p_pack_type, p.units_per_pack as p_units_per_pack
       ${baseQuery}
       ${orderBy}
       LIMIT ? OFFSET ?
@@ -91,6 +92,10 @@ export class InventoryRepository {
       delete batch.p_generic_name;
       delete batch.p_manufacturer;
       delete batch.p_barcode;
+      delete batch.p_strength;
+      delete batch.p_unit;
+      delete batch.p_pack_type;
+      delete batch.p_units_per_pack;
 
       batch.product = {
         id: row.p_id,
@@ -98,6 +103,10 @@ export class InventoryRepository {
         generic_name: row.p_generic_name,
         manufacturer: row.p_manufacturer,
         barcode: row.p_barcode,
+        strength: row.p_strength,
+        unit: row.p_unit,
+        pack_type: row.p_pack_type,
+        units_per_pack: row.p_units_per_pack,
       };
       return batch as InventoryBatch;
     });
@@ -161,8 +170,45 @@ export class InventoryRepository {
 
   static findById(id: number): InventoryBatch | undefined {
     const db = DatabaseManager.getInstance();
-    const stmt = db.prepare(`SELECT * FROM inventory_batches WHERE id = ?`);
-    return stmt.get(id) as InventoryBatch | undefined;
+    const row = db
+      .prepare(
+        `SELECT b.*, 
+                p.id as p_id, p.name as p_name, p.generic_name as p_generic_name, p.manufacturer as p_manufacturer, p.barcode as p_barcode,
+                p.strength as p_strength, p.unit as p_unit, p.pack_type as p_pack_type, p.units_per_pack as p_units_per_pack
+         FROM inventory_batches b
+         LEFT JOIN products p ON b.product_id = p.id
+         WHERE b.id = ?`,
+      )
+      .get(id) as any;
+
+    if (!row) return undefined;
+
+    const batch: any = { ...row };
+    delete batch.p_id;
+    delete batch.p_name;
+    delete batch.p_generic_name;
+    delete batch.p_manufacturer;
+    delete batch.p_barcode;
+    delete batch.p_strength;
+    delete batch.p_unit;
+    delete batch.p_pack_type;
+    delete batch.p_units_per_pack;
+
+    if (row.p_id) {
+      batch.product = {
+        id: row.p_id,
+        name: row.p_name,
+        generic_name: row.p_generic_name,
+        manufacturer: row.p_manufacturer,
+        barcode: row.p_barcode,
+        strength: row.p_strength,
+        unit: row.p_unit,
+        pack_type: row.p_pack_type,
+        units_per_pack: row.p_units_per_pack,
+      };
+    }
+
+    return batch as InventoryBatch;
   }
 
   static updateBatch(id: number, payload: Partial<InventoryBatch>): void {

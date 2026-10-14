@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { InventoryBatch, Product } from '../../../../shared/types'
 
@@ -7,9 +7,17 @@ export const StockAdjustmentForm: React.FC = () => {
   const [searchParams] = useSearchParams()
   const initialBatchId = searchParams.get('batchId') || ''
   
-  const [batches, setBatches] = useState<InventoryBatch[]>([])
-  const [products, setProducts] = useState<Record<number, Product>>({})
+  const [searchQuery, setSearchQuery] = useState('')
+  const [displayedBatches, setDisplayedBatches] = useState<InventoryBatch[]>([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(-1)
+  const dropdownContainerRef = useRef<HTMLDivElement>(null)
+
+  const [selectedBatch, setSelectedBatch] = useState<InventoryBatch | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedBatchId, setSelectedBatchId] = useState<number | string>(initialBatchId)
+
   const [enteredQuantity, setEnteredQuantity] = useState<number>(0)
   const [adjustmentUnit, setAdjustmentUnit] = useState<'BASE' | 'PACK'>('BASE')
   const [type, setType] = useState<'INCREASE' | 'DECREASE'>('DECREASE')
@@ -20,21 +28,49 @@ export const StockAdjustmentForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
 
+  // Handle outside click to close dropdown
   useEffect(() => {
-    fetchBatches()
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownContainerRef.current && !dropdownContainerRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const fetchBatches = async () => {
+  // Initial load: either fetch specific batch by ID or fetch default initial batches
+  useEffect(() => {
+    if (initialBatchId) {
+      loadInitialBatch(Number(initialBatchId))
+    } else {
+      fetchDefaultBatches()
+    }
+  }, [initialBatchId])
+
+  const loadInitialBatch = async (batchId: number) => {
     try {
       setLoading(true)
-      const [invData, prodData] = await Promise.all([
-        window.api.inventory.list(),
-        window.api.product.list({ pageSize: 1000 })
-      ])
-      setBatches(invData.items)
-      const prodMap: Record<number, Product> = {}
-      prodData.items.forEach(p => prodMap[p.id] = p)
-      setProducts(prodMap)
+      const b = await window.api.inventory.getBatchById(batchId)
+      if (b) {
+        await handleSelectBatch(b)
+      } else {
+        setError(`Batch #${batchId} not found`)
+        fetchDefaultBatches()
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to load specified batch')
+      fetchDefaultBatches()
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchDefaultBatches = async () => {
+    try {
+      setLoading(true)
+      const res = await window.api.inventory.list({ pageSize: 50 })
+      setDisplayedBatches(res.items)
     } catch (err: any) {
       setError(err.message || 'Failed to load inventory batches')
     } finally {
@@ -42,9 +78,77 @@ export const StockAdjustmentForm: React.FC = () => {
     }
   }
 
-  const selectedBatch = batches.find(b => b.id === Number(selectedBatchId))
-  const selectedProduct = selectedBatch ? products[selectedBatch.product_id] : null
-  
+  // Debounced live search
+  useEffect(() => {
+    let active = true
+    const search = async () => {
+      setIsSearching(true)
+      try {
+        const res = await window.api.inventory.list({
+          search: searchQuery.trim(),
+          pageSize: 40
+        })
+        if (active) {
+          setDisplayedBatches(res.items)
+          setSelectedIndex(-1)
+        }
+      } catch (err) {
+        console.error('Failed to search inventory batches:', err)
+      } finally {
+        if (active) setIsSearching(false)
+      }
+    }
+
+    const timer = setTimeout(() => {
+      search()
+    }, 200)
+
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [searchQuery])
+
+  const handleSelectBatch = async (batch: InventoryBatch) => {
+    setSelectedBatch(batch)
+    setSelectedBatchId(batch.id)
+    setError(null)
+    setIsDropdownOpen(false)
+    setSearchQuery('')
+
+    if (batch.product && batch.product.unit) {
+      setSelectedProduct(batch.product)
+    } else {
+      try {
+        const prod = await window.api.product.get(batch.product_id)
+        if (prod) {
+          setSelectedProduct(prod)
+        }
+      } catch (err) {
+        console.error('Failed to load product details for batch:', err)
+      }
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!isDropdownOpen || displayedBatches.length === 0) return
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setSelectedIndex(prev => (prev < displayedBatches.length - 1 ? prev + 1 : 0))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setSelectedIndex(prev => (prev > 0 ? prev - 1 : displayedBatches.length - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (selectedIndex >= 0 && selectedIndex < displayedBatches.length) {
+        handleSelectBatch(displayedBatches[selectedIndex])
+      }
+    } else if (e.key === 'Escape') {
+      setIsDropdownOpen(false)
+    }
+  }
+
   const baseUnit = selectedProduct?.unit || 'Unit'
   const packType = selectedProduct?.pack_type || 'Pack'
   const unitsPerPack = selectedProduct?.units_per_pack || 1
@@ -127,28 +231,134 @@ export const StockAdjustmentForm: React.FC = () => {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-6">
-        {/* Batch Selection */}
-        <div className="space-y-2">
+        {/* Batch Selection with Search Autocomplete */}
+        <div className="space-y-2 relative" ref={dropdownContainerRef}>
           <label className="block text-sm font-semibold text-slate-700">1. Select Inventory Batch *</label>
-          <select
-            value={selectedBatchId}
-            onChange={(e) => {
-              setSelectedBatchId(e.target.value)
-              setError(null)
-            }}
-            required
-            className="w-full px-3 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-teal-500"
-          >
-            <option value="">Select a batch...</option>
-            {batches.map(b => {
-              const p = products[b.product_id]
-              return (
-                <option key={b.id} value={b.id}>
-                  {p ? `${p.name} ${p.strength}` : `Product ID: ${b.product_id}`} | Batch: {b.batch_number} (Exp: {new Date(b.expiry_date).toLocaleDateString()}) - Current Qty: {b.quantity}
-                </option>
-              )
-            })}
-          </select>
+          
+          {selectedBatch ? (
+            <div className="flex items-center justify-between w-full px-3.5 py-2.5 bg-teal-50 border border-teal-400 rounded-lg shadow-sm text-sm text-slate-800">
+              <div className="truncate pr-2">
+                <span className="font-bold text-slate-900">
+                  {selectedProduct?.name || selectedBatch.product?.name || `Product #${selectedBatch.product_id}`}
+                </span>
+                {(selectedProduct?.strength || selectedBatch.product?.strength) && (
+                  <span className="text-xs text-slate-600 ml-1.5 font-medium">
+                    ({selectedProduct?.strength || selectedBatch.product?.strength})
+                  </span>
+                )}
+                <span className="text-xs bg-teal-100 text-teal-800 font-mono px-2 py-0.5 rounded ml-2 font-medium">
+                  Batch: {selectedBatch.batch_number}
+                </span>
+                <span className="text-xs text-teal-700 ml-2 font-medium">
+                  (Exp: {new Date(selectedBatch.expiry_date).toLocaleDateString()} • Stock: {selectedBatch.quantity} {baseUnit}s)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedBatch(null)
+                  setSelectedProduct(null)
+                  setSelectedBatchId('')
+                  setSearchQuery('')
+                  setIsDropdownOpen(true)
+                }}
+                className="text-slate-400 hover:text-red-500 focus:outline-none px-1.5 py-0.5 rounded text-sm font-bold transition-colors"
+                title="Change selected batch"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search batch by medicine, batch number, barcode..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  if (!isDropdownOpen) setIsDropdownOpen(true)
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                onKeyDown={handleKeyDown}
+                className="block w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm placeholder-slate-400"
+              />
+              {isSearching && (
+                <div className="absolute right-3.5 top-3">
+                  <svg className="animate-spin h-4 w-4 text-teal-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isDropdownOpen && !selectedBatch && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl overflow-hidden max-h-64 overflow-y-auto z-50">
+              {displayedBatches.length > 0 ? (
+                displayedBatches.map((b, index) => {
+                  const p = b.product
+                  const displayName = p?.name || `Product ID: ${b.product_id}`
+                  const displayStrength = p?.strength ? p.strength : null
+                  const displayUnit = p?.unit || 'Unit'
+                  const displayPack = p?.pack_type
+                  const isSelected = index === selectedIndex
+
+                  return (
+                    <div
+                      key={b.id}
+                      className={`px-3.5 py-2.5 cursor-pointer border-b border-slate-100 last:border-0 text-sm transition-colors ${
+                        isSelected
+                          ? 'bg-teal-50 font-semibold text-teal-900 active-batch-option'
+                          : 'hover:bg-slate-50 text-slate-700'
+                      }`}
+                      onClick={() => handleSelectBatch(b)}
+                    >
+                      <div className="flex justify-between items-start">
+                        <span className="font-semibold text-slate-900 truncate">
+                          {displayName}
+                          {displayStrength && (
+                            <span className="font-normal text-slate-600 text-xs ml-1">({displayStrength})</span>
+                          )}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          {p?.barcode && (
+                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">
+                              BC: {p.barcode}
+                            </span>
+                          )}
+                          <span className="text-xs bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono font-medium">
+                            Batch: {b.batch_number}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-2 text-xs text-slate-500 mt-1">
+                        <span>Exp: {new Date(b.expiry_date).toLocaleDateString()}</span>
+                        <span>•</span>
+                        <span className="font-medium text-teal-700">Current Qty: {b.quantity} {displayUnit}s</span>
+                        {displayPack && (
+                          <>
+                            <span>•</span>
+                            <span>{displayPack}</span>
+                          </>
+                        )}
+                        {p?.manufacturer && (
+                          <>
+                            <span>•</span>
+                            <span className="text-slate-400">{p.manufacturer}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="p-4 text-center text-sm text-slate-500">
+                  {isSearching ? 'Searching inventory batches...' : 'No matching inventory batches found.'}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Selected Batch Details */}
@@ -156,11 +366,16 @@ export const StockAdjustmentForm: React.FC = () => {
           <div className="p-4 bg-slate-50 rounded-lg border border-slate-100 flex justify-between items-center text-sm font-medium">
             <div>
               <p className="text-xs text-slate-400">Selected Batch Stock</p>
-              <p className="text-slate-800 font-bold mt-1">Batch {selectedBatch.batch_number}</p>
+              <p className="text-slate-800 font-bold mt-1">
+                {selectedProduct?.name || selectedBatch.product?.name} — Batch {selectedBatch.batch_number}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Expires: {new Date(selectedBatch.expiry_date).toLocaleDateString()}
+              </p>
             </div>
             <div className="text-right">
               <p className="text-xs text-slate-400">Current Qty</p>
-              <p className="text-teal-600 font-bold text-lg mt-1">{selectedBatch.quantity}</p>
+              <p className="text-teal-600 font-bold text-lg mt-1">{selectedBatch.quantity} {baseUnit}s</p>
             </div>
           </div>
         )}
